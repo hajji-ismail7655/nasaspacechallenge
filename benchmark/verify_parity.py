@@ -124,11 +124,17 @@ def main():
             import json as _j
             pj = _j.load(open(py_bd))
             cj = _j.load(open(cpp_bd))
-            # compare scale_invariance_index
             if abs(pj.get("scale_invariance_index",0) - cj.get("scale_invariance_index",0)) > 1e-5:
                 bd_ok = False
-            # compare channel_residuals keys
             if set(pj.get("channel_residuals",{}).keys()) != set(cj.get("channel_residuals",{}).keys()):
+                bd_ok = False
+            # compare channel_residuals float values
+            for key in pj.get("channel_residuals",{}):
+                for field in ("earth_mean","target_mean","z_divergence"):
+                    if abs(pj["channel_residuals"][key].get(field,0) - cj["channel_residuals"][key].get(field,0)) > 1e-5:
+                        bd_ok = False
+            # compare physical_breakdown_flags count
+            if len(pj.get("physical_breakdown_flags",[])) != len(cj.get("physical_breakdown_flags",[])):
                 bd_ok = False
         except Exception:
             bd_ok = False
