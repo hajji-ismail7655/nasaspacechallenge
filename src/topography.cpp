@@ -239,8 +239,8 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
                         zc = (float)(zr / 0.5);
                         if (zc < -5) zc = -5; if (zc > 5) zc = 5;
                     }
-                    double gx = (j > 0) ? std::fabs(zc - ( [&](){ if (c < (int)nc) { float vv = tbase[to+((size_t)c*th_Hk+i)*th_Wk+(j-1)]; if (vv==nodata_val) return zc; float zz=(float)((vv-REF_MU[c])/REF_SIG[c]); if(zz<-5)zz=-5; if(zz>5)zz=5; return zz;} else { return zc;} }() )) : 0.0;
-                    double gy = (i > 0) ? std::fabs(zc - ( [&](){ if (c < (int)nc) { float vv = tbase[to+((size_t)c*th_Hk+(i-1))*th_Wk+j]; if (vv==nodata_val) return zc; float zz=(float)((vv-REF_MU[c])/REF_SIG[c]); if(zz<-5)zz=-5; if(zz>5)zz=5; return zz;} else { return zc;} }() )) : 0.0;
+                    double gx = (j > 0) ? std::fabs(zc - ( [&](){ if (c < (int)nc) { float vv = tbase[to+((size_t)c*th_Hk+i)*th_Wk+(j-1)]; if (vv==nodata_val) return 0.0f; float zz=(float)((vv-REF_MU[c])/REF_SIG[c]); if(zz<-5)zz=-5; if(zz>5)zz=5; return zz;} else { float v1n = tbase[to + (1 * th_Hk + (c>= (int)nc?0:0) )]; return 0.0f;} }() )) : 0.0;
+                    double gy = (i > 0) ? std::fabs(zc - ( [&](){ if (c < (int)nc) { float vv = tbase[to+((size_t)c*th_Hk+(i-1))*th_Wk+j]; if (vv==nodata_val) return 0.0f; float zz=(float)((vv-REF_MU[c])/REF_SIG[c]); if(zz<-5)zz=-5; if(zz>5)zz=5; return zz;} else { float v1n = tbase[to + (1 * th_Hk + (c>= (int)nc?0:0) )]; return 0.0f;} }() )) : 0.0;
                     tsum += std::sqrt(gx*gx + gy*gy);
                     tcnt++;
                 }
