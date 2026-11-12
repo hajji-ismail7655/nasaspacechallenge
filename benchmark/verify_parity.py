@@ -134,7 +134,8 @@ def main():
             bd_ok = False
     result["breakdown_pass"] = bd_ok
     print(json.dumps(result, indent=2))
-    ok = result["rmse_pass"] and result["ssim_pass"] and result["speedup_pass"] and bd_ok
+    result["rmse_conf_pass"] = max_rmse_conf < args.rmse_threshold
+    ok = result["rmse_pass"] and result["ssim_pass"] and result["speedup_pass"] and result["rmse_conf_pass"] and bd_ok
     sys.exit(0 if ok else 1)
 
 
