@@ -374,7 +374,7 @@ Each `OptiAlgo/<domain>/src/<domain>.cpp` exposes `extern "C" int32_t run_module
 
 ---
 
-## 6b. BestAlgo v2.0 Algorithm Update (Local-Distribution Matching)
+## A1-5b. BestAlgo v2.0 Algorithm Update (Local-Distribution Matching)
 
 The v2.0 `BestAlgo/*` modules replace pixel-to-pixel raw cosine similarity with
 feature-standardized, scale-matched local-distribution comparison:

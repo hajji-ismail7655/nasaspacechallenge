@@ -14,4 +14,4 @@
 
 **v2.0 parity status**: BestAlgo (Python) v2 complete. OptiAlgo (C++) v2 port in progress (topography attempt builds/runs, parity tuning pending). Run `benchmark/verify_parity.py` and `benchmark/run_asan.sh` for verification.
 
-**ASAN smoke test**: `bash benchmark/run_asan.sh <module> <earth.ptile> <target.ptile>` compiles with `-fsanitize=address,undefined` and runs `run_module` via ctypes. Exit code 0 = clean.
+**ASAN smoke test**: `bash benchmark/run_asan.sh <module> <earth.ptile> <target.ptile>` compiles with `-fsanitize=address,undefined -std=c++20` (note: add `-fopenmp` to match `bindings.py` OpenMP coverage) and runs `run_module` via ctypes. Exit code 0 = clean.
