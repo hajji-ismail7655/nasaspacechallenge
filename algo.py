@@ -25,6 +25,8 @@ def compute_similarity(earth_tile_path, target_tile_path, out_hmap_path, out_bre
     per_octave_mean = []
     raw_channel_residuals = {("ch%d" % c): {"earth_mean": 0.0, "target_mean": 0.0, "z_divergence": 0.0}
                             for c in range(num_channels)}
+    _raw_e = [[] for _ in range(num_channels)]
+    _raw_t = [[] for _ in range(num_channels)]
 
     for k in range(num_octaves):
         e_raw = eoct[k][:num_channels].astype(np.float64)
@@ -36,11 +38,8 @@ def compute_similarity(earth_tile_path, target_tile_path, out_hmap_path, out_bre
         for c in range(num_channels):
             em = e_raw[c].ravel(); em = em[em != NODATA]
             tm = t_raw[c].ravel(); tm = tm[tm != NODATA]
-            raw_channel_residuals["ch%d" % c]["earth_mean"] = float(np.mean(em)) if em.size else 0.0
-            raw_channel_residuals["ch%d" % c]["target_mean"] = float(np.mean(tm)) if tm.size else 0.0
-            pooled = float(np.sqrt((np.var(em) if em.size else 0.0) + (np.var(tm) if tm.size else 0.0) + 1e-12))
-            raw_channel_residuals["ch%d" % c]["z_divergence"] = float(
-                (raw_channel_residuals["ch%d" % c]["earth_mean"] - raw_channel_residuals["ch%d" % c]["target_mean"]) / pooled) if pooled > 0 else 0.0
+            _raw_e[c].extend(em.tolist())
+            _raw_t[c].extend(tm.tolist())
 
         e_norm = normalize_channels(e_raw.astype(np.float32), REFS[:num_channels])
         t_norm = normalize_channels(t_raw.astype(np.float32), REFS[:num_channels])
@@ -52,6 +51,15 @@ def compute_similarity(earth_tile_path, target_tile_path, out_hmap_path, out_bre
         octaves_out.append(oct_arr)
         valid = conf_map > 0
         per_octave_mean.append(float(np.mean(sim_map[valid])) if valid.any() else 0.0)
+
+    for c in range(num_channels):
+        em = np.array(_raw_e[c], dtype=np.float64)
+        tm = np.array(_raw_t[c], dtype=np.float64)
+        raw_channel_residuals["ch%d" % c]["earth_mean"] = float(np.mean(em)) if em.size else 0.0
+        raw_channel_residuals["ch%d" % c]["target_mean"] = float(np.mean(tm)) if tm.size else 0.0
+        pooled = float(np.sqrt((np.var(em) if em.size else 0.0) + (np.var(tm) if tm.size else 0.0) + 1e-12))
+        raw_channel_residuals["ch%d" % c]["z_divergence"] = float(
+            (raw_channel_residuals["ch%d" % c]["earth_mean"] - raw_channel_residuals["ch%d" % c]["target_mean"]) / pooled) if pooled > 0 else 0.0
 
     if len(per_octave_mean) > 1:
         si = 1.0 - float(np.std(per_octave_mean))
