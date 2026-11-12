@@ -60,14 +60,14 @@ def compute_similarity(earth_tile_path, target_tile_path, out_hmap_path, out_bre
         # slope idx 1, aspect idx 2
         sl = np.deg2rad(e_raw[1]); asp = np.deg2rad(e_raw[2])
         proxy_e = np.sin(sl) * np.cos(asp)
-        proxy_e = np.where(e_raw[1] == NODATA, np.nan, proxy_e).astype(np.float64)
+        proxy_e = np.where((e_raw[1] == NODATA) | (e_raw[2] == NODATA), np.nan, proxy_e).astype(np.float64)
         proxy_e = np.clip(proxy_e / 0.5, -5.0, 5.0).astype(np.float32)
-        proxy_e = np.where(e_raw[1] == NODATA, np.nan, proxy_e).astype(np.float32)
+        proxy_e = np.where((e_raw[1] == NODATA) | (e_raw[2] == NODATA), np.nan, proxy_e).astype(np.float32)
         slt = np.deg2rad(t_raw[1]); aspt = np.deg2rad(t_raw[2])
         proxy_t = np.sin(slt) * np.cos(aspt)
-        proxy_t = np.where(t_raw[1] == NODATA, np.nan, proxy_t).astype(np.float64)
+        proxy_t = np.where((t_raw[1] == NODATA) | (t_raw[2] == NODATA), np.nan, proxy_t).astype(np.float64)
         proxy_t = np.clip(proxy_t / 0.5, -5.0, 5.0).astype(np.float32)
-        proxy_t = np.where(t_raw[1] == NODATA, np.nan, proxy_t).astype(np.float32)
+        proxy_t = np.where((t_raw[1] == NODATA) | (t_raw[2] == NODATA), np.nan, proxy_t).astype(np.float32)
         e_norm = np.concatenate([e_norm, proxy_e[None, ...]], axis=0)
         t_norm = np.concatenate([t_norm, proxy_t[None, ...]], axis=0)
 
