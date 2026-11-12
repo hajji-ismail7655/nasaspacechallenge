@@ -24,12 +24,19 @@ def composite_similarity(module_scores, weights=None):
         H = min(s[0] for s in shapes)
         W = min(s[1] for s in shapes)
         comp = np.zeros((H, W), dtype=np.float64)
+        wsum = np.zeros((H, W), dtype=np.float64)
         for m, octs in module_scores.items():
             arr = octs[k]
             if arr.ndim == 3:
-                arr = arr[0]  # similarity channel
-            arr = arr[:H, :W]
-            comp += (weights.get(m, 1.0) / total_w) * arr.astype(np.float64)
+                arr = arr[0]
+            arr = arr[:H, :W].astype(np.float64)
+            w = weights.get(m, 1.0)
+            # renormalize over valid (non-zero) modules
+            valid = (arr != 0.0)
+            comp = np.where(valid, comp + w * arr, comp)
+            wsum = np.where(valid, wsum + w, wsum)
+        # avoid div by zero
+        comp = np.where(wsum > 0, comp / np.where(wsum > 0, wsum, 1.0), 0.0)
         result[k] = comp.astype(np.float32)
     return result
 
