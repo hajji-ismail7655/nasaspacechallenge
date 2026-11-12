@@ -21,7 +21,7 @@ def process_one(src_npy, src_meta, body, domain, lat0, lon0, out_base, channels)
     R = {"earth": 6371000, "moon": 1737400, "mars": 3389500}[body.lower()]
     H0, W0 = 512, 512
     out_grid = reproject_to_laea(src, lats, lons, lat0, lon0, body=body,
-                                 out_shape=(H0, W0), resolution_m=base_res)
+                                 out_shape=(H0, W0), resolution_m=30.0)
     # channel handling: if 2D, add channel axis
     if out_grid.ndim == 2:
         out_grid = out_grid[None, ...]

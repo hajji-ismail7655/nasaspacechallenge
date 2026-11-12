@@ -50,7 +50,7 @@ def write_ptile(path: str, body: str, domain: str, num_octaves: int,
         magic, CONTRACT_VERSION, body_i, domain_i, num_octaves, num_channels,
         base_height, base_width, float(base_resolution_m), float(center_lat_deg),
         float(center_lon_deg), float(nodata_value), float(grav), float(pres),
-        float(radiation_msv_yr), b"\x00" * 40,
+        float(radiation_msv_yr), b"\x00" * 56,
     )
     assert len(header) == 128
 

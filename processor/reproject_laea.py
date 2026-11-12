@@ -91,9 +91,9 @@ def reproject_to_laea(source: np.ndarray,
         src_lats = src_lats[::-1]
         source = source[::-1, :]
     # wrap target longitudes into source longitude range
+    tlon_w = tlon.copy()
     if src_lons.size > 1:
         lo, hi = float(src_lons.min()), float(src_lons.max())
-        tlon_w = tlon.copy()
         for _ in range(5):
             mask = tlon_w < lo
             if not mask.any():
@@ -105,21 +105,22 @@ def reproject_to_laea(source: np.ndarray,
                 break
             tlon_w[mask] -= 360.0
 
+    filled = np.where(source != nodata, source, 0.0).astype(np.float64)
+    valid = (source != nodata).astype(np.float64)
     interp = RegularGridInterpolator(
-        (src_lats, src_lons), source, method=method,
-        bounds_error=False, fill_value=nodata
-    )
-    pts = np.stack([tlat.ravel(), tlon_w.ravel()], axis=-1)
-    out = interp(pts).reshape(H, W).astype(np.float32)
-
-    valid = (source != nodata).astype(np.float32)
-    vinterp = RegularGridInterpolator(
-        (src_lats, src_lons), valid, method="nearest",
+        (src_lats, src_lons), filled, method=method,
         bounds_error=False, fill_value=0.0
     )
-    vpts = np.stack([tlat.ravel(), tlon_w.ravel()], axis=-1)
-    vout = vinterp(vpts).reshape(H, W)
-    out = np.where(vout > 0.5, out, nodata).astype(np.float32)
+    vinterp = RegularGridInterpolator(
+        (src_lats, src_lons), valid, method=method,
+        bounds_error=False, fill_value=0.0
+    )
+    pts = np.stack([tlat.ravel(), tlon_w.ravel()], axis=-1)
+    out = interp(pts).reshape(H, W)
+    vout = vinterp(pts).reshape(H, W)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        out = np.where(vout > 1e-6, out / np.where(vout > 1e-6, vout, 1.0), nodata)
+    out = np.where(vout > 1e-6, out, nodata).astype(np.float32)
     return out
 
 
