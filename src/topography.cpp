@@ -60,6 +60,8 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
     close(tfd);
     if (tmap == MAP_FAILED) { munmap(emap, est.st_size); return -6; }
 
+    if (est.st_size < 128 || tst.st_size < 128) {
+        munmap(emap, est.st_size); munmap(tmap, tst.st_size); return -13; }
     TileBinaryHeader* eh = (TileBinaryHeader*)emap;
     TileBinaryHeader* th = (TileBinaryHeader*)tmap;
     if (eh->magic != PTIL_MAGIC || th->magic != PTIL_MAGIC) { 
@@ -79,8 +81,9 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
 
     uint32_t num_octaves = eh->num_octaves;
     if (th->num_octaves < num_octaves) num_octaves = th->num_octaves;
-    uint32_t base_height = eh->base_height;
-    uint32_t base_width = eh->base_width;
+    if (num_octaves > 32) num_octaves = 32;
+    uint32_t base_height = eh->base_height < th->base_height ? eh->base_height : th->base_height;
+    uint32_t base_width = eh->base_width < th->base_width ? eh->base_width : th->base_width;
     uint32_t nc_e = eh->num_channels;
     uint32_t nc_t = th->num_channels;
     uint32_t nc = nc_e < nc_t ? nc_e : nc_t;
@@ -192,12 +195,10 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
     if (si > 1.0) si = 1.0;
 
     // compute channel residuals
-    char cres[8192];
-    cres[0] = '{'; cres[1] = '}'; cres[2] = '\0';
     // build JSON manually
     char buf[16384];
     int bpos = 0;
-    bpos += sprintf(buf + bpos, "{");
+    bpos += snprintf(buf + bpos, sizeof(buf)-bpos, "{");
     int first = 1;
     for (uint32_t c = 0; c < nc; c++) {
         double esum=0, tsum=0, evar=0, tvar=0; long ec=0, tc=0;
@@ -235,12 +236,12 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
         double tpooled = tc>0 ? tvar/tc : 0.0;
         double pooled = sqrt(epooled + tpooled + 1e-12);
         double zdiv = (emean - tmean) / pooled;
-        if (!first) bpos += sprintf(buf + bpos, ",");
+        if (!first) bpos += snprintf(buf + bpos, sizeof(buf)-bpos, ",");
         first = 0;
-        bpos += sprintf(buf + bpos, " \"ch%d\": {\"earth_mean\": %.6f, \"target_mean\": %.6f, \"z_divergence\": %.6f }",
+        bpos += snprintf(buf + bpos, sizeof(buf)-bpos, " \"ch%d\": {\"earth_mean\": %.6f, \"target_mean\": %.6f, \"z_divergence\": %.6f }",
                         c, emean, tmean, zdiv);
     }
-    bpos += sprintf(buf + bpos, "}");
+    bpos += snprintf(buf + bpos, sizeof(buf)-bpos, "}");
 
     // write breakdown json
     if (out_breakdown_json_path) {
