@@ -117,7 +117,7 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
     // channel residuals accumulators
     double e_sum[NC+1], t_sum[NC+1]; long e_cnt[NC+1], t_cnt[NC+1];
     double e_sumsq[NC+1], t_sumsq[NC+1];
-    for (int c = 0; c <= NC; c++) { e_sum[c]=t_sum[c]=e_sumsq[c]=t_sumsq[c]=0; e_cnt[c]=t_cnt[c]=0; }
+    for (int c = 0; c <= (int)nc; c++) { e_sum[c]=t_sum[c]=e_sumsq[c]=t_sumsq[c]=0; e_cnt[c]=t_cnt[c]=0; }
 
     for (uint32_t k = 0; k < num_octaves; k++) {
         uint32_t Hk = base_height >> k; if (Hk == 0) Hk = 1;
@@ -149,7 +149,7 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
         // We'll just compute on demand. Precompute target signature.
         // Target signature per channel (0..nc, where nc is proxy index 6)
         double t_mean[NC+1], t_std[NC+1], t_quant[NC+1][5], t_tex[NC+1];
-        for (int c = 0; c <= NC; c++) {
+        for (int c = 0; c <= (int)nc; c++) {
             // collect valid target normalized values
             // for c < nc use tile channels; for c == nc (proxy) compute from slope/aspect
             std::vector<float> vals;
@@ -421,6 +421,22 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
             }
         }
         if (count > 0) octave_means[k] = sum_sim / (double)count;
+    }
+
+    // accumulate earth raw channel residuals
+    for (uint32_t c = 0; c < nc; c++) {
+        size_t eo2 = 0;
+        for (uint32_t kk = 0; kk < num_octaves; kk++) {
+            uint32_t Hkk = base_height >> kk; if (Hkk == 0) Hkk = 1;
+            uint32_t Wkk = base_width >> kk; if (Wkk == 0) Wkk = 1;
+            for (uint32_t i = 0; i < Hkk; i++)
+                for (uint32_t j = 0; j < Wkk; j++) {
+                    float v = ebase[eo2 + ((size_t)c * Hkk + i) * Wkk + j];
+                    if (v != nodata_val) { e_sum[c] += v; e_sumsq[c] += (double)v*v; e_cnt[c]++; }
+                }
+            eo2 += (size_t)nc_e * Hkk * Wkk;
+        }
+    }
 
     // scale invariance
     double mean = 0.0;
@@ -438,7 +454,21 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
         if (f) {
             fprintf(f, "{\n");
             fprintf(f, "  \"scale_invariance_index\": %.6f,\n", si);
-            fprintf(f, "  \"channel_residuals\": {},\n");
+            // build channel_residuals json
+            char crbuf[8192]; int crpos = 0;
+            crpos += snprintf(crbuf + crpos, sizeof(crbuf)-crpos, "{");
+            for (uint32_t c = 0; c < nc; c++) {
+                double emean = e_cnt[c] > 0 ? e_sum[c]/e_cnt[c] : 0.0;
+                double tmean = t_cnt[c] > 0 ? t_sum[c]/t_cnt[c] : 0.0;
+                double epooled = e_cnt[c] > 0 ? e_sumsq[c]/e_cnt[c] - emean*emean : 0.0;
+                double tpooled = t_cnt[c] > 0 ? t_sumsq[c]/t_cnt[c] - tmean*tmean : 0.0;
+                double pooled = std::sqrt(epooled + tpooled + 1e-12);
+                double zdiv = pooled > 0 ? (emean - tmean) / pooled : 0.0;
+                if (c > 0) crpos += snprintf(crbuf + crpos, sizeof(crbuf)-crpos, ",");
+                crpos += snprintf(crbuf + crpos, sizeof(crbuf)-crpos, " \"ch%u\": {\"earth_mean\": %.6f, \"target_mean\": %.6f, \"z_divergence\": %.6f}", c, emean, tmean, zdiv);
+            }
+            crpos += snprintf(crbuf + crpos, sizeof(crbuf)-crpos, "}");
+            fprintf(f, "  \"channel_residuals\": %s,\n", crbuf);
             fprintf(f, "  \"physical_breakdown_flags\": [\n");
             fprintf(f, "    {\"flag\": \"GRAVITY_SCALING\", \"gravity_scaling_factor\": %.6f},\n", (double)th->gravity_ms2 / (double)eh->gravity_ms2);
             fprintf(f, "    {\"flag\": \"ATMOSPHERE_GAP\", \"atmospheric_pressure_gap_pa\": %.6f},\n", (double)std::fabs(eh->surface_pressure_pa - th->surface_pressure_pa));
@@ -459,4 +489,4 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
     munmap(tmap, tst.st_size);
     return 0;
 }
-}
+
