@@ -61,7 +61,8 @@ def compute_similarity(earth_tile_path, target_tile_path, out_hmap_path, out_bre
                 conf_map[i, j] = c
         oct_arr = np.stack([sim_map, conf_map], axis=0).astype(np.float32)
         octaves_out.append(oct_arr)
-        per_octave_mean.append(float(np.mean(sim_map)))
+        _valid = conf_map > 0
+        per_octave_mean.append(float(np.mean(sim_map[_valid])) if _valid.any() else 0.0)
 
     if len(per_octave_mean) > 1:
         si = 1.0 - float(np.std(per_octave_mean))
@@ -102,7 +103,9 @@ def compute_similarity(earth_tile_path, target_tile_path, out_hmap_path, out_bre
     write_hmap(out_hmap_path, num_octaves, base_height, base_width, num_channels=2,
                octaves_data=octaves_out, body=eh["body"], domain=eh["domain"],
                center_lat=eh["center_lat_deg"], center_lon=eh["center_lon_deg"],
-               base_res=eh["base_resolution_m"])
+               base_res=eh["base_resolution_m"],
+               gravity=eh["gravity_ms2"], pressure=eh["surface_pressure_pa"],
+               radiation=eh["radiation_msv_yr"])
     write_breakdown(out_breakdown_path, breakdown)
 
 
