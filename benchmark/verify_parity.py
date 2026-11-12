@@ -118,7 +118,6 @@ def main():
         "ssim_pass": min_ssim > args.ssim_threshold,
         "speedup_pass": speedup >= args.speedup_threshold,
     }
-    print(json.dumps(result, indent=2))
     bd_ok = os.path.exists(py_bd) and os.path.exists(cpp_bd)
     if bd_ok:
         try:
@@ -134,6 +133,7 @@ def main():
         except Exception:
             bd_ok = False
     result["breakdown_pass"] = bd_ok
+    print(json.dumps(result, indent=2))
     ok = result["rmse_pass"] and result["ssim_pass"] and result["speedup_pass"] and bd_ok
     sys.exit(0 if ok else 1)
 
