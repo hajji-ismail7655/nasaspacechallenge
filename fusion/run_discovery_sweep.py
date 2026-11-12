@@ -76,6 +76,16 @@ def read_hmap_header_and_octaves(path):
     return header, octaves
 
 
+def _resize_nearest_2d(arr, target_h, target_w):
+    """Upsample/resize a 2D array to (target_h, target_w) via nearest-neighbor indices."""
+    sh, sw = arr.shape
+    if sh == target_h and sw == target_w:
+        return arr
+    ri = np.minimum((np.arange(target_h, dtype=np.int64) * sh) // target_h, sh - 1)
+    ci = np.minimum((np.arange(target_w, dtype=np.int64) * sw) // target_w, sw - 1)
+    return arr[ri[:, None], ci[None, :]]
+
+
 def write_composite_hmap(path, header_ref, comp_octaves, i_scale):
     """Write a fused 2-channel composite .hmap (ch0=filtered sim, ch1=conf mask)."""
     num_octaves = header_ref["num_octaves"]
@@ -90,7 +100,6 @@ def write_composite_hmap(path, header_ref, comp_octaves, i_scale):
         b"\x00" * 56,
     )
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    H0_i, W0_i = i_scale.shape
     with open(path, "wb") as f:
         f.write(hdr_bytes)
         for k in range(num_octaves):
@@ -100,16 +109,10 @@ def write_composite_hmap(path, header_ref, comp_octaves, i_scale):
             if sim_k is None:
                 block = np.zeros((2, Hk, Wk), dtype=np.float32)
             else:
-                s_h, s_w = min(Hk, sim_k.shape[0]), min(Wk, sim_k.shape[1])
-                sim_pad = np.zeros((Hk, Wk), dtype=np.float32)
-                sim_pad[:s_h, :s_w] = np.clip(sim_k[:s_h, :s_w], 0.0, 1.0)
-                # Downsampled confidence proxy (1 where composite is positive/valid)
-                stride = max(1, 2 ** k)
-                i_sub = i_scale[::stride, ::stride]
-                c_h, c_w = min(Hk, i_sub.shape[0]), min(Wk, i_sub.shape[1])
-                conf_pad = np.zeros((Hk, Wk), dtype=np.float32)
-                conf_pad[:c_h, :c_w] = np.where((sim_pad[:c_h, :c_w] > 0) | (i_sub[:c_h, :c_w] > 0), 1.0, 0.0)
-                block = np.stack([sim_pad, conf_pad], axis=0).astype(np.float32)
+                sim_full = np.clip(_resize_nearest_2d(sim_k, Hk, Wk), 0.0, 1.0).astype(np.float32)
+                i_full = _resize_nearest_2d(i_scale, Hk, Wk).astype(np.float32)
+                conf_full = np.where((sim_full > 0) | (i_full > 0), 1.0, 0.0).astype(np.float32)
+                block = np.stack([sim_full, conf_full], axis=0).astype(np.float32)
             f.write(np.ascontiguousarray(block, dtype=np.float32).tobytes())
 
 
@@ -242,11 +245,20 @@ def run_sweep(
     algo_root=None,
     known_analogs_path=None,
     weights=None,
+    sites=None,
+    targets=None,
+    max_pairs=0,
 ):
     """Execute full cross-planetary discovery sweep across Earth x Target pairs."""
     os.makedirs(out_dir, exist_ok=True)
     earth_tiles = _index_standardized_tiles(earth_dir)
     target_tiles = _index_standardized_tiles(target_dir)
+    if sites:
+        site_set = set(sites)
+        earth_tiles = {k: v for k, v in earth_tiles.items() if k in site_set}
+    if targets:
+        target_set = set(targets)
+        target_tiles = {k: v for k, v in target_tiles.items() if k in target_set}
     if not earth_tiles:
         raise FileNotFoundError(f"No standardized Earth .ptile tiles found in {earth_dir}")
     if not target_tiles:
@@ -269,8 +281,12 @@ def run_sweep(
 
     entries = []
     for target_id, tinfo in sorted(target_tiles.items()):
+        if max_pairs and len(entries) >= max_pairs:
+            break
         mission_test = map_site(target_id)
         for site_id, einfo in sorted(earth_tiles.items()):
+            if max_pairs and len(entries) >= max_pairs:
+                break
             common_domains = [d for d in DOMAINS if d in einfo["domains"] and d in tinfo["domains"]]
             if not common_domains:
                 continue
@@ -328,19 +344,26 @@ def run_sweep(
 
             active_weights = {d: (weights.get(d, 1.0) if weights else 1.0) for d in common_domains}
             comp_octs = composite_similarity(module_octaves, weights=active_weights)
-            filtered_octs, i_scale = scale_invariance_filter(comp_octs)
+            _, i_scale = scale_invariance_filter(comp_octs)
 
-            # Scalar scores from octave-0 valid composite & I_scale
+            # scale_invariance_filter crops to coarsest octave shape (H_min, W_min);
+            # upsample i_scale per octave so full-resolution heatmaps and scalar means align.
+            full_filtered_octs = {}
+            for k, comp_k in comp_octs.items():
+                i_scale_k = _resize_nearest_2d(i_scale, comp_k.shape[0], comp_k.shape[1]).astype(np.float32)
+                full_filtered_octs[k] = (comp_k * i_scale_k).astype(np.float32)
+
             comp0 = comp_octs[0]
-            filt0 = filtered_octs[0]
+            i_scale_0 = _resize_nearest_2d(i_scale, comp0.shape[0], comp0.shape[1])
+            filt0 = full_filtered_octs[0]
             valid_c = comp0 > 0
             composite_raw = float(np.mean(comp0[valid_c])) if valid_c.any() else 0.0
-            si_val = float(np.mean(i_scale[valid_c])) if valid_c.any() else 0.0
+            si_val = float(np.mean(i_scale_0[valid_c])) if valid_c.any() else 0.0
             composite_filtered = float(np.mean(filt0[valid_c])) if valid_c.any() else 0.0
 
             comp_hmap_path = os.path.join(out_dir, f"{site_id}_{target_id}_composite.hmap")
             if ref_hdr is not None:
-                write_composite_hmap(comp_hmap_path, ref_hdr, filtered_octs, i_scale)
+                write_composite_hmap(comp_hmap_path, ref_hdr, full_filtered_octs, i_scale)
 
             novelty_w = float(apply_suppression(lat, lon, mask_features, buffer_km=150.0)) if mask_features else 1.0
             novel_score = round(composite_filtered * novelty_w, 6)
@@ -437,6 +460,9 @@ def main():
     ap.add_argument("--algo-root", default="", help="Optional base path containing OptiAlgo/<mod> or BestAlgo/<mod>")
     ap.add_argument("--known-analogs", default="", help="Optional path to known_analogs_mask.geojson")
     ap.add_argument("--weights-json", default="", help="Optional JSON string or file path of per-domain fusion weights")
+    ap.add_argument("--sites", default="", help="Optional comma-separated Earth site IDs filter")
+    ap.add_argument("--targets", default="", help="Optional comma-separated target IDs filter")
+    ap.add_argument("--max-pairs", type=int, default=0, help="Optional cap on Earth x Target pairs (0 = all)")
     args = ap.parse_args()
 
     weights = None
@@ -447,6 +473,9 @@ def main():
         else:
             weights = json.loads(args.weights_json)
 
+    sites = [s.strip() for s in args.sites.split(",") if s.strip()] if args.sites else None
+    targets = [t.strip() for t in args.targets.split(",") if t.strip()] if args.targets else None
+
     summary = run_sweep(
         earth_dir=args.earth_dir,
         target_dir=args.target_dir,
@@ -456,6 +485,9 @@ def main():
         algo_root=args.algo_root or None,
         known_analogs_path=args.known_analogs or None,
         weights=weights,
+        sites=sites,
+        targets=targets,
+        max_pairs=args.max_pairs,
     )
     print(json.dumps(summary, indent=2))
 
