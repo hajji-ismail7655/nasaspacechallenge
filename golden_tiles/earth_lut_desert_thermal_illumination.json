@@ -1,12 +1,12 @@
 {
   "tile_id": "earth_lut_desert_thermal_illumination",
-  "proj4_laea": "+proj=laea +lat_0=30.5 +lon_0=59.0",
+  "proj4_laea": "+proj=laea +lat_0=30.5 +lon_0=59.0 +R=6371000",
   "channel_names": [
-    "ch0",
-    "ch1",
-    "ch2",
-    "ch3",
-    "ch4"
+    "T_max",
+    "T_min",
+    "delta_T",
+    "albedo",
+    "ATI"
   ],
   "source_datasets": [],
   "acquisition_window": "2024-01-01/2024-12-31",

@@ -2,8 +2,8 @@
   "golden_tiles": [
     {
       "file": "earth_anti_atlas_topography.json",
-      "sha256": "a48a3e51a700b216db6bf01b15811220008539337e317e53ca3e7b8ac178db29",
-      "size": 535
+      "sha256": "345acfb8996bae5190fc220787c59a8978a9311cdbdf4668bdcdb7cb8f060bc0",
+      "size": 591
     },
     {
       "file": "earth_anti_atlas_topography.ptile",
@@ -12,8 +12,8 @@
     },
     {
       "file": "earth_danakil_mineralogy.json",
-      "sha256": "e5c9edaca9876bf8f2a5364e4b343e1e044f3bbae3e6afa67a775d377245c043",
-      "size": 552
+      "sha256": "7ae0251af07132cbd886e60829c27da7f364fb894e95bfb8e4fc034f781c565a",
+      "size": 658
     },
     {
       "file": "earth_danakil_mineralogy.ptile",
@@ -22,8 +22,8 @@
     },
     {
       "file": "earth_lut_desert_thermal_illumination.json",
-      "sha256": "232e1d695a6b754efde97f201ec732a324f6d657111b8549ef20a697e9ded83a",
-      "size": 542
+      "sha256": "d76741dbb98f7125078cf4bd612a12f6484d057dab2670e5bb5592a90993010d",
+      "size": 564
     },
     {
       "file": "earth_lut_desert_thermal_illumination.ptile",
@@ -32,8 +32,8 @@
     },
     {
       "file": "earth_tanezrouft_granular_aeolian.json",
-      "sha256": "a626f9bf2dbff1e30637d704f3704c99d233e42fb5ad0460bfdee1a7228230e5",
-      "size": 532
+      "sha256": "deb04fa1ae91205b362a7b0d9d7d53e3f39cfa45e3311ec73fa2122350b46ed4",
+      "size": 595
     },
     {
       "file": "earth_tanezrouft_granular_aeolian.ptile",
@@ -42,8 +42,8 @@
     },
     {
       "file": "earth_undara_volatiles_subsurface.json",
-      "sha256": "02d85d6c10f200b34b8e45150f99500c79e932ae31be3f096d93baace3b02693",
-      "size": 542
+      "sha256": "de90113582f4d253dfbda06ea0f953126cc1665df691696978b81bff2ac54b02",
+      "size": 632
     },
     {
       "file": "earth_undara_volatiles_subsurface.ptile",
@@ -52,8 +52,8 @@
     },
     {
       "file": "mars_arcadia_planitia_topography.json",
-      "sha256": "dbb6914ea507224298bdeaa142921c48c12a8d93c98f80848d146dc26ed0be27",
-      "size": 539
+      "sha256": "c54a429bfe9c87ef375e5686b9ca7e33dba9f030b3a935c0615c943c2b9a011a",
+      "size": 595
     },
     {
       "file": "mars_arcadia_planitia_topography.ptile",
@@ -62,8 +62,8 @@
     },
     {
       "file": "mars_arsia_mons_pits_volatiles_subsurface.json",
-      "sha256": "404df399a6da05dc2c46ea0f7293c0cebdd13aadeceff950e973b5780b4ddfeb",
-      "size": 547
+      "sha256": "ec1a2258d76e896740380fe41f99011f5bb15086fc939706277cb075b3ea6372",
+      "size": 637
     },
     {
       "file": "mars_arsia_mons_pits_volatiles_subsurface.ptile",
@@ -72,8 +72,8 @@
     },
     {
       "file": "mars_bagnold_dunes_granular_aeolian.json",
-      "sha256": "0f851848cc2dfcea15e19e1d9aac8490583e5e061bf5f2bc55beb02b5888ec20",
-      "size": 537
+      "sha256": "1f3dba97b642d51bbe3d6b7c05f720b494b7b16ba3f6581e06d8828f188285d3",
+      "size": 600
     },
     {
       "file": "mars_bagnold_dunes_granular_aeolian.ptile",
@@ -82,8 +82,8 @@
     },
     {
       "file": "moon_aristarchus_plateau_mineralogy.json",
-      "sha256": "6607fddd9afc4c0a6f60303882e601038550982744ce0e892c15fef085821e40",
-      "size": 564
+      "sha256": "31f7cb5dd3df920ae822e53dca57aa3865e9437869fb741822e68f38f0c298c9",
+      "size": 670
     },
     {
       "file": "moon_aristarchus_plateau_mineralogy.ptile",
@@ -92,8 +92,8 @@
     },
     {
       "file": "moon_malapert_massif_topography.json",
-      "sha256": "aee7c8c13e17cec87959974eaabd6b2913e2abcf5e582b09120337dfca5bb86e",
-      "size": 536
+      "sha256": "8c0c25a7534544d5d2d7cf8d25d8628d0bb16eb07329a27b879d8adfdb91477c",
+      "size": 592
     },
     {
       "file": "moon_malapert_massif_topography.ptile",
@@ -101,5 +101,5 @@
       "size": 2095232
     }
   ],
-  "total_bytes": 20608562
+  "total_bytes": 20609270
 }

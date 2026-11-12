@@ -18,6 +18,16 @@ CHANNELS = {
     "granular_aeolian": 5,
     "volatiles_subsurface": 5,
 }
+
+CHANNEL_NAMES = {
+    "topography": ["elevation_z", "slope_theta", "aspect_psi", "TRI", "TPI", "profile_curvature_kappa_p"],
+    "mineralogy": ["mafic_pyroxene", "olivine", "plagioclase_anorthosite", "phyllosilicate_clay",
+                   "sulfate", "iron_oxide", "silica_carbonate_tir", "ndvi_biosphere_mask"],
+    "thermal_illumination": ["T_max", "T_min", "delta_T", "albedo", "ATI"],
+    "granular_aeolian": ["radar_cpr", "rock_abundance", "grain_diameter_d50", "dust_aod", "dune_crest_spacing"],
+    "volatiles_subsurface": ["weh_wt_percent", "ice_table_depth_m", "dielectric_permittivity",
+                             "bouguer_gradient_mgal_km", "pit_aspect_ratio"],
+}
 BODIES = {
     "earth": (9.80665, 101325.0),
     "moon": (1.622, 3e-10),
@@ -50,10 +60,11 @@ for body, domain, tid, lat, lon in tiles:
         octs.append(arr)
     base = os.path.join(OUT, tid + "_" + domain)
     write_ptile(base + ".ptile", body, domain, 5, C, H, W, 30.0, lat, lon, octaves_data=octs)
+    R = {"earth": 6371000, "moon": 1737400, "mars": 3389500}[body]
     write_json_sidecar(base + ".json", {
         "tile_id": tid + "_" + domain,
-        "proj4_laea": f"+proj=laea +lat_0={lat} +lon_0={lon}",
-        "channel_names": [f"ch{i}" for i in range(C)],
+        "proj4_laea": f"+proj=laea +lat_0={lat} +lon_0={lon} +R={R}",
+        "channel_names": CHANNEL_NAMES[domain],
         "source_datasets": [],
         "acquisition_window": "2024-01-01/2024-12-31",
         "quality_mask_stats": {"valid_fraction": 0.99},

@@ -1,13 +1,13 @@
 {
   "tile_id": "earth_anti_atlas_topography",
-  "proj4_laea": "+proj=laea +lat_0=30.5 +lon_0=352.0",
+  "proj4_laea": "+proj=laea +lat_0=30.5 +lon_0=352.0 +R=6371000",
   "channel_names": [
-    "ch0",
-    "ch1",
-    "ch2",
-    "ch3",
-    "ch4",
-    "ch5"
+    "elevation_z",
+    "slope_theta",
+    "aspect_psi",
+    "TRI",
+    "TPI",
+    "profile_curvature_kappa_p"
   ],
   "source_datasets": [],
   "acquisition_window": "2024-01-01/2024-12-31",
