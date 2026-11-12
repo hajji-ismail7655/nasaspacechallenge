@@ -75,7 +75,7 @@ def compute_similarity(earth_tile_path, target_tile_path, out_hmap_path, out_bre
         channel_names = channel_names + ["ch%d" % i for i in range(len(channel_names), num_channels)]
     channel_residuals = {}
     for ci in range(num_channels):
-        cname = channel_names[ci] if ci < len(channel_names) else "ch%d" % ci
+        cname = "ch%d" % ci
         e_vals = np.concatenate([eoct[k][ci].ravel() for k in range(num_octaves)])
         t_vals = np.concatenate([toct[k][ci].ravel() for k in range(num_octaves)])
         em = e_vals[e_vals != NODATA]
