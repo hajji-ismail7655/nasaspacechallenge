@@ -60,16 +60,16 @@ def compute_similarity(earth_tile_path, target_tile_path, out_hmap_path, out_bre
         t_norm = normalize_channels(t_raw.astype(np.float32), REFS[:num_channels])
         # append illumination proxy channel (sin(slope)*cos(aspect)) for topography
         # slope idx 1, aspect idx 2
-        sl = e_norm[1]; asp = e_norm[2]
+        sl = np.deg2rad(e_raw[1]); asp = np.deg2rad(e_raw[2])
         proxy_e = np.sin(sl) * np.cos(asp)
-        proxy_e = np.where(np.isnan(sl) | np.isnan(asp), np.nan, proxy_e).astype(np.float64)
+        proxy_e = np.where(e_raw[1] == NODATA, np.nan, proxy_e).astype(np.float64)
         proxy_e = np.clip(proxy_e / 0.5, -5.0, 5.0).astype(np.float32)
-        proxy_e = np.where(np.isnan(sl) | np.isnan(asp), np.nan, proxy_e).astype(np.float32)
-        slt = t_norm[1]; aspt = t_norm[2]
+        proxy_e = np.where(e_raw[1] == NODATA, np.nan, proxy_e).astype(np.float32)
+        slt = np.deg2rad(t_raw[1]); aspt = np.deg2rad(t_raw[2])
         proxy_t = np.sin(slt) * np.cos(aspt)
-        proxy_t = np.where(np.isnan(slt) | np.isnan(aspt), np.nan, proxy_t).astype(np.float64)
+        proxy_t = np.where(t_raw[1] == NODATA, np.nan, proxy_t).astype(np.float64)
         proxy_t = np.clip(proxy_t / 0.5, -5.0, 5.0).astype(np.float32)
-        proxy_t = np.where(np.isnan(slt) | np.isnan(aspt), np.nan, proxy_t).astype(np.float32)
+        proxy_t = np.where(t_raw[1] == NODATA, np.nan, proxy_t).astype(np.float32)
         e_norm = np.concatenate([e_norm, proxy_e[None, ...]], axis=0)
         t_norm = np.concatenate([t_norm, proxy_t[None, ...]], axis=0)
 
