@@ -1,4 +1,4 @@
-# Benchmarks
+# Benchmarks (v2.0)
 
 ## BestAlgo (Python) vs OptiAlgo (C++20) Parity
 
