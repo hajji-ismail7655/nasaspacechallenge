@@ -160,13 +160,17 @@ def local_windows(norm_arr, r):
         wview = sliding_window_view(chpad, (win, win))  # (H,W,win,win)
         wflat = wview.reshape(H * W, win * win)
         # nanpercentile
-        qs = np.nanpercentile(wflat, [10, 25, 50, 75, 90], axis=1)  # (5, H*W)
+        with np.errstate(all='ignore'):
+            qs = np.nanpercentile(wflat, [10, 25, 50, 75, 90], axis=1)  # (5, H*W)
+        qs = np.where(np.isnan(qs), 0.0, qs)
         quantiles[:, :, c, :] = qs.T.reshape(H, W, 5)
         # std local
         # mean and mean^2
-        arr = np.where(np.isnan(wflat), 0.0, wflat)
-        m = arr.mean(axis=1)
-        m2 = (arr * arr).mean(axis=1)
+        # std over valid pixels only
+        vflat = np.where(np.isnan(wflat), 0.0, wflat)
+        vcount = (~np.isnan(wflat)).sum(axis=1).astype(np.float64)
+        m = np.where(vcount > 0, vflat.sum(axis=1) / np.where(vcount > 0, vcount, 1.0), 0.0)
+        m2 = np.where(vcount > 0, (vflat * vflat).sum(axis=1) / np.where(vcount > 0, vcount, 1.0), 0.0)
         sd = np.sqrt(np.maximum(m2 - m * m, 0.0))
         std_local[:, :, c] = sd.reshape(H, W)
         # texture local mean
