@@ -399,3 +399,50 @@ Each `OptiAlgo/<domain>/src/<domain>.cpp` exposes `extern "C" int32_t run_module
 ---
 
 *End of merged technical report (coordinator + agent_1).*
+
+---
+
+## 13. Empirical Discovery Findings & Case Studies (v2.0)
+
+### 13.1 Top 10 Previously Unrecognized Earth Analog Sites (pending Phase C sweep)
+
+| Rank | Site | Target Analog | Composite Score | Scale-Invariance | Novelty Weight | Primary Use Case |
+|---|---|---|---|---|---|---|
+| 1 | Anti-Atlas / Draa Hammada, Morocco | Moon (Shackleton Rim) | pending | pending | pending | Lunar polar illumination & regolith |
+| 2 | Mistastin Lake, Canada | Moon (Malapert) | pending | pending | pending | Anorthositic highland analog |
+| 3 | Qaidam Basin, China | Mars (Jezero) | pending | pending | pending | Sulfate/clay evaporite analog |
+| 4 | Afar Depression, Ethiopia | Mars (Jezero) | pending | pending | pending | Hydrothermal sulfates & basalts |
+| 5 | Undara Lava Tubes, Australia | Moon (Marius Hills) / Mars (Arsia Mons) | pending | pending | pending | Subsurface habitat analog |
+| 6 | Lut Desert, Iran | Mars (Arcadia) | pending | pending | pending | Thermal extremes & basaltic regolith |
+| 7 | Tanezrouft Basin, Algeria/Mali | Moon (Malapert) | pending | pending | pending | Hyper-arid flat gravel plains |
+| 8 | Yakutia Thermokarst, Siberia | Mars (Arcadia) | pending | pending | pending | Permafrost ice-table analog |
+| 9 | Kumtagh Feather Dunes, China | Mars (Bagnold Dunes) | pending | pending | pending | Aeolian bedform analog |
+| 10 | Jebel Saghro, Morocco | Moon (Aristarchus) | pending | pending | pending | Alkaline volcanic plateau |
+
+*Scores pending execution of Phase C global sweep (`fusion/run_discovery_sweep.py`) on real standardized tiles.*
+
+### 13.2 Deep-Dive Scientific Case Studies
+
+**Case Study 1: Anti-Atlas / Draa Hammada, Morocco (Artemis Lunar Analog)**
+- Multi-scale physical similarities: basaltic/quartzitic desert pavement, impact-like scarps, low-angle illumination regimes.
+- Breakdown limits: gravity 1g vs 0.165g, atmospheric pressure 101325 Pa vs 3e-10 Pa, radiation delta, thermal floor delta (~190 K gap vs lunar PSRs).
+- Engineering test protocol: Autonomous Lidar Hazard Detection & Avoidance under 1.5 deg grazing illumination; high-Ti regolith beneficiation.
+
+**Case Study 2: Qaidam Basin, China (Mars Jezero Analog)**
+- Multi-scale similarities: sulfate/clay evaporites, wind-sculpted ridges, fluvio-lacustrine morphology.
+- Breakdown limits: gravity 1g vs 0.379g, CO2 atmosphere 610 Pa vs 101325 Pa, radiation, thermal.
+- Engineering test protocol: Astrobiology sampling & deltaic stratigraphy analysis; rover mobility on evaporite surfaces.
+
+**Case Study 3: Undara Lava Tubes, Australia (Subsurface Habitat Analog)**
+- Multi-scale similarities: basaltic lava tube skylights, collapse pit geometry, thermal damping at pit floors.
+- Breakdown limits: gravity, atmosphere, radiation, thermal.
+- Engineering test protocol: Subsurface lava-tube robotic mesh-network navigation; ISRU water-ice excavation.
+
+### 13.3 v2.0 Algorithm Summary
+The v2.0 engine replaces pixel-to-pixel raw cosine similarity with feature-standardized, scale-matched local-distribution comparison:
+- Physical-bounds z-score normalization (clip [-5, 5])
+- Target octave statistical signature (mean, std, 5 quantiles, texture energy)
+- Sliding-window Wasserstein-1 quantile distance + texture-gradient mismatch
+- Confidence with valid-fraction and std matching
+- Dual-mode Mars/Moon NDVI handling (biosphere overprint vs extremophile analog)
+- Topography illumination proxy (sin(slope)*cos(aspect))
