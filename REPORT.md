@@ -374,6 +374,19 @@ Each `OptiAlgo/<domain>/src/<domain>.cpp` exposes `extern "C" int32_t run_module
 
 ---
 
+## 6. BestAlgo v2.0 Standardized Local-Distribution Matching (Updated)
+
+The v2.0 `BestAlgo/*` modules replace pixel-to-pixel raw cosine similarity with
+feature-standardized, scale-matched local-distribution comparison:
+
+- **Physical-bounds z-score normalization**: clip [-5, 5] using per-domain reference constants.
+- **Target octave signature**: per-channel mean, std, 5 quantiles [Q10,Q25,Q50,Q75,Q90], texture energy.
+- **Sliding-window Wasserstein-1**: radius r_k = max(3, 15>>k); D = (1/C) sum_c (0.75*W1_c + 0.25*deltaE_c); sim = exp(-D).
+- **Confidence**: f_valid (min over channels) * 1/(1 + mean |sigma_e - sigma_t|).
+- **Elimination of spatial stretching**: no `ti = i * th_Hk / Hk`; target is an octave distribution.
+- **Dual-mode NDVI**: Moon (NDVI>0.15 penalty + BIOSPHERE_OVERPRINT); Mars (NDVI>0.25 penalty, 0.05<NDVI<=0.25 extremophile boost).
+- **Topography illumination proxy**: sin(slope)*cos(aspect) appended as feature channel.
+
 ## 6. Late Fusion & Mission Characterization (`fusion/`)
 
 - **`fusion/engine.py`**:
