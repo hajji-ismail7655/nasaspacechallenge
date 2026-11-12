@@ -44,9 +44,9 @@ not a pixel grid. Earth and Target compare at identical physical meter-per-pixel
 resolutions with zero spatial index stretching.
 
 ### 5. Dual-Mode Biosphere Handling (mineralogy)
-- Moon targets: NDVI > 0.15 → 0.25x penalty + BIOSPHERE_OVERPRINT flag
-- Mars targets: NDVI > 0.25 → penalized + BIOSPHERE_OVERPRINT; 0.05 < NDVI <= 0.25
-  with elevated clays/sulfates/carbonates → 1.15x affinity boost + ASTROBIOLOGY_EXTREMOPHILE_ANALOG
+- Moon targets: NDVI > 0.15 → BIOSPHERE_OVERPRINT flag (classification; sim multiplier reserved for v2.1)
+- Mars targets: NDVI > 0.25 → BIOSPHERE_OVERPRINT flag; 0.05 < NDVI <= 0.25 with elevated
+  clays/sulfates/carbonates → ASTROBIOLOGY_EXTREMOPHILE_ANALOG flag (affinity boost reserved for v2.1)
 
 ### 6. Topography Illumination Proxy
 Explicit low-angle illumination proxy sin(slope)*cos(aspect) appended as an

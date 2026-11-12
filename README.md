@@ -11,7 +11,7 @@ open datasets, dual-tier Python/C++ processing modules, and explicit physical an
 python3 benchmark/verify_parity.py --py BestAlgo/topography --cpp OptiAlgo/topography --earth benchmark/nodata_fixture/nodata_earth_topo.ptile --target benchmark/nodata_fixture/nodata_moon_topo.ptile
 
 # 2. Run Discovery Sweep on Standardized Tiles
-python3 fusion/run_discovery_sweep.py --earth-dir ./data_lake/standardized/earth --target-dir ./data_lake/standardized/targets --out-dir ./data_lake/results/
+python3 -c "print('Discovery sweep pending: implement fusion/run_discovery_sweep.py (Phase C)')"  # TODO: Phase C script
 
 # 3. Launch Interactive WebGIS Dashboard
 uvicorn app.main:app --host 0.0.0.0 --port 8000
