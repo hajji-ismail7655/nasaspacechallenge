@@ -1,7 +1,8 @@
 """FastAPI backend for the Analog Discovery WebGIS dashboard."""
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
 import os
+import json
 
 app = FastAPI(title="Cross-Planetary Terrestrial Analog Discovery Engine")
 
@@ -34,5 +35,12 @@ def novelty_mask_toggle(enabled: bool = True):
 
 
 @app.get("/breakdown/{site_id}")
-def breakdown(site_id: str):
-    return JSONResponse({"site_id": site_id, "breakdown": "see _breakdown.json", "mission_test": site_id})
+def breakdown(site_id: str, path: str = Query(default="")):
+    if path and os.path.exists(path):
+        try:
+            with open(path) as f:
+                data = json.load(f)
+            return JSONResponse({"site_id": site_id, "breakdown": data})
+        except Exception as e:
+            return JSONResponse({"site_id": site_id, "error": str(e)}, status_code=400)
+    return JSONResponse({"site_id": site_id, "breakdown": "provide ?path= to _breakdown.json", "mission_test": site_id})
