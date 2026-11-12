@@ -243,6 +243,22 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
     }
     bpos += snprintf(buf + bpos, sizeof(buf)-bpos, "}");
 
+    // cryogenic floor delta from channel 1 (T_min)
+    double e_tmin=0, t_tmin=0; long ec=0, tc=0;
+    size_t eo2=0, to2=0;
+    for (uint32_t kk=0; kk<num_octaves; kk++) {
+        uint32_t Hkk = base_height >> kk;
+        uint32_t Wkk = base_width >> kk;
+        for (uint32_t i=0;i<Hkk;i++) for (uint32_t j=0;j<Wkk;j++) {
+            float ev = ebase[eo2 + (1*Hkk + i)*Wkk + j];
+            float tv = tbase[to2 + (1*Hkk + i)*Wkk + j];
+            if (ev != nodata_val) { e_tmin += ev; ec++; }
+            if (tv != nodata_val) { t_tmin += tv; tc++; }
+        }
+        eo2 += (size_t)nc_e * Hkk * Wkk;
+        to2 += (size_t)nc_t * Hkk * Wkk;
+    }
+    double floor_delta = (ec>0 && tc>0) ? (e_tmin/ec - t_tmin/tc) : 0.0;
     // write breakdown json
     if (out_breakdown_json_path) {
         FILE* f = fopen(out_breakdown_json_path, "w");
@@ -254,7 +270,7 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
             fprintf(f, "    {\"flag\": \"GRAVITY_SCALING\", \"gravity_scaling_factor\": %.6f},\n", (double)th->gravity_ms2 / (double)eh->gravity_ms2);
             fprintf(f, "    {\"flag\": \"ATMOSPHERE_GAP\", \"atmospheric_pressure_gap_pa\": %.6f},\n", (double)std::fabs(eh->surface_pressure_pa - th->surface_pressure_pa));
             fprintf(f, "    {\"flag\": \"RADIATION_DELTA\", \"radiation_delta_msv_yr\": %.6f},\n", (double)std::fabs(eh->radiation_msv_yr - th->radiation_msv_yr));
-            fprintf(f, "    {\"flag\": \"CRYOGENIC_FLOOR_DELTA\", \"thermal_floor_delta_k\": %.6f},\n", (double)(0.0));
+            fprintf(f, "    {\"flag\": \"CRYOGENIC_FLOOR_DELTA\", \"thermal_floor_delta_k\": %.6f},\n", floor_delta);
             fprintf(f, "    {\"flag\": \"THERMAL_TEST_CHAMBER_CORRECTION\", \"details\": \"Apply thermal vacuum chamber correction.\"}\n");
             fprintf(f, "  ]\n");
             fprintf(f, "}\n");
