@@ -1,7 +1,6 @@
 """FastAPI backend for the Analog Discovery WebGIS dashboard."""
 from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse, FileResponse, Response
-from fastapi.staticfiles import StaticFiles
 import os
 import json
 import struct
@@ -77,6 +76,8 @@ def heatmap(site_id: str, target_id: str, domain: str, octave: str):
             for fn in files:
                 if fn.endswith(".hmap") and site_id in fn and domain in fn:
                     hmap_path = os.path.join(root, fn); break
+            if os.path.exists(hmap_path):
+                break
     if not os.path.exists(hmap_path):
         return Response(status_code=404)
     try:
@@ -100,16 +101,14 @@ def heatmap(site_id: str, target_id: str, domain: str, octave: str):
         arr = np.frombuffer(raw[off:off+n*4], dtype=np.float32).reshape(2, Hk, Wk)
         sim = arr[0]; conf = arr[1]
         from PIL import Image
-        img = Image.new("RGBA", (Wk, Hk))
-        px = img.load()
-        for y in range(Hk):
-            for x in range(Wk):
-                v = float(sim[y, x]); c = float(conf[y, x])
-                r = int(255 * v)
-                g = int(255 * (1-v) * 0.5)
-                b = int(255 * (1-v))
-                a = int(255 * c) if c > 0 else 0
-                px[x, y] = (r, g, b, a)
+        import numpy as np
+        r = (255 * sim).astype('uint8')
+        g = (255 * (1-sim) * 0.5).astype('uint8')
+        b = (255 * (1-sim)).astype('uint8')
+        a = (255 * conf).astype('uint8')
+        a = np.where(conf > 0, a, 0).astype('uint8')
+        rgba = np.stack([r, g, b, a], axis=-1)
+        img = Image.fromarray(rgba, "RGBA")
         import io
         buf = io.BytesIO()
         img.save(buf, format="PNG")
@@ -119,13 +118,17 @@ def heatmap(site_id: str, target_id: str, domain: str, octave: str):
 
 @app.get("/breakdown/{site_id}")
 def breakdown(site_id: str, path: str = Query(default="")):
-    if path and os.path.exists(path):
-        try:
-            with open(path) as f:
-                data = json.load(f)
-            return JSONResponse({"site_id": site_id, "breakdown": data})
-        except Exception as e:
-            return JSONResponse({"site_id": site_id, "error": str(e)}, status_code=400)
+    if path:
+        rp = os.path.realpath(path)
+        if not rp.startswith(os.path.realpath(DATA)):
+            return JSONResponse({"site_id": site_id, "error": "path outside data_lake"}, status_code=403)
+        if os.path.exists(rp):
+            try:
+                with open(rp) as f:
+                    data = json.load(f)
+                return JSONResponse({"site_id": site_id, "breakdown": data})
+            except Exception as e:
+                return JSONResponse({"site_id": site_id, "error": str(e)}, status_code=400)
     return JSONResponse({"site_id": site_id, "breakdown": "provide ?path= to _breakdown.json"})
 
 if __name__ == "__main__":
