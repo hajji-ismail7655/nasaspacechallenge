@@ -34,7 +34,7 @@ def load_cpp_compute(cpp_dir):
 def read_hmap(path):
     import struct
     raw = open(path, "rb").read()
-    hdr = struct.unpack("<IIIIIIII ddd ffff 40s 16x", raw[:128])
+    hdr = struct.unpack("<IIIIIIII ddd ffff 56s", raw[:128])
     num_octaves = hdr[4]
     bh = hdr[6]
     bw = hdr[7]
@@ -120,6 +120,19 @@ def main():
     }
     print(json.dumps(result, indent=2))
     bd_ok = os.path.exists(py_bd) and os.path.exists(cpp_bd)
+    if bd_ok:
+        try:
+            import json as _j
+            pj = _j.load(open(py_bd))
+            cj = _j.load(open(cpp_bd))
+            # compare scale_invariance_index
+            if abs(pj.get("scale_invariance_index",0) - cj.get("scale_invariance_index",0)) > 1e-5:
+                bd_ok = False
+            # compare channel_residuals keys
+            if set(pj.get("channel_residuals",{}).keys()) != set(cj.get("channel_residuals",{}).keys()):
+                bd_ok = False
+        except Exception:
+            bd_ok = False
     result["breakdown_pass"] = bd_ok
     ok = result["rmse_pass"] and result["ssim_pass"] and result["speedup_pass"] and bd_ok
     sys.exit(0 if ok else 1)
