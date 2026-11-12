@@ -98,12 +98,13 @@ def main():
     ap.add_argument("--octaves", type=int, default=5)
     args = ap.parse_args()
     H, W = args.shape
+    _R = {"earth":6371000,"moon":1737400,"mars":3389500}[args.body.lower()]
     octs = [np.zeros((args.channels, H >> k, W >> k), dtype=np.float32) for k in range(args.octaves)]
     write_ptile(args.out + ".ptile", args.body, args.domain, args.octaves, args.channels,
                 H, W, args.res, args.lat, args.lon, octaves_data=octs)
     meta = {
         "tile_id": os.path.basename(args.out),
-        "proj4_laea": f"+proj=laea +lat_0={args.lat} +lon_0={args.lon} +R=6371000 +units=m",
+        "proj4_laea": f"+proj=laea +lat_0={args.lat} +lon_0={args.lon} +R={_R} +units=m",
         "channel_names": [f"ch{i}" for i in range(args.channels)],
         "source_datasets": [],
         "acquisition_window": "",
