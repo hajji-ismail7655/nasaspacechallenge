@@ -245,7 +245,7 @@ EOF
 
 # Agent 1 Technical Report (merged)
 
-## 1. Overall Architecture & Multi-Phase Pipeline (Phases 0–5)
+## A1-1. Overall Architecture & Multi-Phase Pipeline (Phases 0–5)
 
 The **Cross-Planetary Terrestrial Analog Discovery Engine** (`nasaspacechallenge`) discovers, scores, and physically characterizes terrestrial analog sites for Artemis lunar targets and Mars exploration sites across five isolated scientific feature domains:
 1. `topography`
@@ -270,7 +270,7 @@ The **Cross-Planetary Terrestrial Analog Discovery Engine** (`nasaspacechallenge
 
 ---
 
-## 2. Binary Contract & Schema Layout (`schema/`)
+## A1-2. Binary Contract & Schema Layout (`schema/`)
 
 ### `schema/tile_contract.h` (`PTIL` / `HMAP` Binary Format)
 
@@ -306,7 +306,7 @@ Each octave block occupies $\text{num\_channels} \times H_k \times W_k \times 4$
 
 ---
 
-## 3. Standardization Processor (`processor/`)
+## A1-3. Standardization Processor (`processor/`)
 
 ### `processor/reproject_laea.py`
 Standardizes geographic rasters (Earth EPSG:4326, Moon IAU:30100, Mars IAU:49900) onto local metric Lambert Azimuthal Equal-Area (LAEA) grids so all cross-planetary comparisons operate strictly in equal-area meters using exact spherical planetary radii:
@@ -327,7 +327,7 @@ Generates a 5-octave anti-aliased multi-scale pyramid at `OCTAVE_RESOLUTIONS = [
 
 ---
 
-## 4. `Datasets` Branch Inventory
+## A1-4. `Datasets` Branch Inventory
 
 - **Candidate Regions & Manifests (`manifests/`)**:
   - `earth_candidates.json`: **31** terrestrial candidate regions (e.g., Anti-Atlas Morocco, Lut Desert Iran, Qaidam Basin China, Afar/Danakil Ethiopia, Tanezrouft Basin, Undara/Jeju lava tubes, Yakutia, plus known-analog control regions).
@@ -339,7 +339,7 @@ Generates a 5-octave anti-aliased multi-scale pyramid at `OCTAVE_RESOLUTIONS = [
 
 ---
 
-## 5. `BestAlgo/*` vs `OptiAlgo/*`: Algorithm, Parity Gate & Benchmarks
+## A1-5. `BestAlgo/*` vs `OptiAlgo/*`: Algorithm, Parity Gate & Benchmarks
 
 ### Domain Feature Channels
 1. **`topography`** (6 ch): `elevation_z`, `slope_theta`, `aspect_psi`, `TRI`, `TPI`, `profile_curvature_kappa_p`
@@ -374,7 +374,7 @@ Each `OptiAlgo/<domain>/src/<domain>.cpp` exposes `extern "C" int32_t run_module
 
 ---
 
-## 6. BestAlgo v2.0 Standardized Local-Distribution Matching (Updated)
+## 6b. BestAlgo v2.0 Algorithm Update (Local-Distribution Matching)
 
 The v2.0 `BestAlgo/*` modules replace pixel-to-pixel raw cosine similarity with
 feature-standardized, scale-matched local-distribution comparison:
@@ -384,10 +384,10 @@ feature-standardized, scale-matched local-distribution comparison:
 - **Sliding-window Wasserstein-1**: radius r_k = max(3, 15>>k); D = (1/C) sum_c (0.75*W1_c + 0.25*deltaE_c); sim = exp(-D).
 - **Confidence**: f_valid (min over channels) * 1/(1 + mean |sigma_e - sigma_t|).
 - **Elimination of spatial stretching**: no `ti = i * th_Hk / Hk`; target is an octave distribution.
-- **Dual-mode NDVI**: Moon (NDVI>0.15 penalty + BIOSPHERE_OVERPRINT); Mars (NDVI>0.25 penalty, 0.05<NDVI<=0.25 extremophile boost).
+- **Dual-mode NDVI**: Moon (NDVI>0.15 penalty + BIOSPHERE_OVERPRINT); Mars (NDVI>0.25 penalty, 0.05<NDVI<=0.25 extremophile boost (flag-only classification; sim multiplier reserved for v2.1)).
 - **Topography illumination proxy**: sin(slope)*cos(aspect) appended as feature channel.
 
-## 6. Late Fusion & Mission Characterization (`fusion/`)
+## A1-6. Late Fusion & Mission Characterization (`fusion/`)
 
 - **`fusion/engine.py`**:
   - `composite_similarity(module_scores, weights)`: Aligns octave shapes across modules (`min(H), min(W)`), takes channel 0 (`sim`), and computes a **valid-module renormalized weighted average** (`valid = (arr != 0.0)`, dividing only by active weight sum `wsum`).
@@ -398,7 +398,7 @@ feature-standardized, scale-matched local-distribution comparison:
 
 ---
 
-## 7. Benchmark Harness (`benchmark/`) & WebGIS API (`app/`)
+## A1-7. Benchmark Harness (`benchmark/`) & WebGIS API (`app/`)
 
 - **`benchmark/verify_parity.py`**: Loads `BestAlgo/<mod>/algo.py` and `OptiAlgo/<mod>/bindings.py`, times both against Earth/Target `.ptile` inputs, reads output `.hmap` octave blocks, evaluates `rmse`, `rmse_conf`, `ssim`, `speedup`, and `breakdown_pass` (`scale_invariance_index` tolerance `1e-5` + `channel_residuals` key equality), and enforces all 5 gates via exit code.
 - **`benchmark/run_asan.sh`**: Compiles any `OptiAlgo` module with `-O1 -g -fsanitize=address,undefined -std=c++20 -shared -fPIC` and, when Earth/Target `.ptile` arguments are passed, executes `run_module` via `ctypes` and asserts return code `0`.
@@ -415,7 +415,7 @@ feature-standardized, scale-matched local-distribution comparison:
 
 ---
 
-## 13. Empirical Discovery Findings & Case Studies (v2.0)
+## A1-13. Empirical Discovery Findings & Case Studies (v2.0)
 
 ### 13.1 Top 10 Previously Unrecognized Earth Analog Sites (pending Phase C sweep)
 
