@@ -82,8 +82,10 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
     uint32_t num_octaves = eh->num_octaves;
     if (th->num_octaves < num_octaves) num_octaves = th->num_octaves;
     if (num_octaves > 32) num_octaves = 32;
-    uint32_t base_height = eh->base_height < th->base_height ? eh->base_height : th->base_height;
-    uint32_t base_width = eh->base_width < th->base_width ? eh->base_width : th->base_width;
+    uint32_t base_height = eh->base_height;
+    uint32_t base_width = eh->base_width;
+    uint32_t th_base_height = th->base_height;
+    uint32_t th_base_width = th->base_width;
     uint32_t nc_e = eh->num_channels;
     uint32_t nc_t = th->num_channels;
     uint32_t nc = nc_e < nc_t ? nc_e : nc_t;
@@ -121,6 +123,10 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
     for (uint32_t k = 0; k < num_octaves; k++) {
         uint32_t Hk = base_height >> k;
         uint32_t Wk = base_width >> k;
+        uint32_t th_Hk = th_base_height >> k;
+        uint32_t th_Wk = th_base_width >> k;
+        if (th_Hk == 0) th_Hk = 1;
+        if (th_Wk == 0) th_Wk = 1;
         // offsets in floats
         // earth: cumulative over previous octaves with nc_e channels
         size_t eo = 0, to = 0;
@@ -128,7 +134,7 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
             uint32_t Hkk = base_height >> kk;
             uint32_t Wkk = base_width >> kk;
             eo += (size_t)nc_e * Hkk * Wkk;
-            to += (size_t)nc_t * Hkk * Wkk;
+            to += (size_t)nc_t * (th_base_height >> kk) * (th_base_width >> kk);
         }
         size_t oo = 0;
         for (uint32_t kk = 0; kk < k; kk++) {
@@ -148,7 +154,13 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
                 // first pass
                 for (uint32_t c = 0; c < nc; c++) {
                     float ev = ebase[eo + ((size_t)c * Hk + i) * Wk + j];
-                    float tv = tbase[to + ((size_t)c * Hk + i) * Wk + j];
+                    int ti = (int)((long long)i * th_Hk / Hk);
+                    int tj = (int)((long long)j * th_Wk / Wk);
+                    if (ti >= (int)th_Hk) ti = th_Hk - 1;
+                    if (tj >= (int)th_Wk) tj = th_Wk - 1;
+                    if (ti < 0) ti = 0;
+                    if (tj < 0) tj = 0;
+                    float tv = tbase[to + ((size_t)c * th_Hk + ti) * th_Wk + tj];
                     if (ev == nodata_val || tv == nodata_val) { has_nodata = 1; break; }
                     dot += (double)ev * (double)tv;
                     ne += (double)ev * (double)ev;
@@ -163,7 +175,13 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
                     double relsum = 0.0;
                     for (uint32_t c = 0; c < nc; c++) {
                         float ev = ebase[eo + ((size_t)c * Hk + i) * Wk + j];
-                        float tv = tbase[to + ((size_t)c * Hk + i) * Wk + j];
+                        int ti = (int)((long long)i * th_Hk / Hk);
+                    int tj = (int)((long long)j * th_Wk / Wk);
+                    if (ti >= (int)th_Hk) ti = th_Hk - 1;
+                    if (tj >= (int)th_Wk) tj = th_Wk - 1;
+                    if (ti < 0) ti = 0;
+                    if (tj < 0) tj = 0;
+                    float tv = tbase[to + ((size_t)c * th_Hk + ti) * th_Wk + tj];
                         double denom = (double)std::fabs(ev) + (double)std::fabs(tv) + 1e-6;
                         relsum += (double)std::fabs(ev - tv) / denom;
                     }
