@@ -6,150 +6,459 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
-  body { margin:0; font-family: Arial, sans-serif; }
-  #topbar { padding:8px; background:#1a1a2e; color:#fff; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
-  #topbar label { font-size:12px; }
-  #topbar select, #topbar input { padding:4px; }
-  #container { display:flex; height: calc(100vh - 48px); }
-  #sidebar { width:320px; overflow:auto; background:#f5f5f5; padding:8px; }
-  #map { flex:1; }
-  #drawer { width:360px; overflow:auto; background:#fafafa; padding:8px; border-left:1px solid #ccc; }
-  .site { padding:6px; margin:4px 0; background:#fff; border:1px solid #ddd; cursor:pointer; }
-  .site:hover { background:#eef; }
-  .site.active { background:#def; border-color:#336; }
-  .badge { display:inline-block; padding:2px 6px; margin:2px; background:#fee; border:1px solid #c99; border-radius:4px; font-size:11px; }
-  .card { background:#fff; border:1px solid #ddd; padding:8px; margin:6px 0; border-radius:4px; }
-  h3 { margin:8px 0 4px; }
-  table { width:100%; border-collapse:collapse; font-size:12px; }
-  td,th { border:1px solid #ddd; padding:3px; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color: #1f2430; background: #f3f5f8; }
+  #topbar {
+    padding: 8px 14px;
+    background: #141926;
+    color: #f4f6fb;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+    border-bottom: 1px solid #2b344d;
+  }
+  #topbar label {
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  #topbar select, #topbar input[type="checkbox"] { padding: 4px 6px; border-radius: 4px; border: 1px solid #3c4866; }
+
+  /* Accessible native range slider (separated WebKit / Firefox pseudo-elements) */
+  input[type="range"].oct-slider {
+    --slider-track-size: 0.4rem;
+    --slider-thumb-size: 1rem;
+    --slider-track-radius: 999px;
+    --slider-thumb-radius: 50%;
+    --slider-track-color: #465373;
+    --slider-fill-color: #4da3ff;
+    --slider-thumb-color: #8bc4ff;
+    --slider-direction: to right;
+    --attr-min: 0;
+    --attr-max: 4;
+    --control-value: 0;
+    --slider-progress: calc(progress(var(--control-value), var(--attr-min), var(--attr-max)) * 100%);
+
+    appearance: none;
+    inline-size: 128px;
+    block-size: 1.75rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+  @supports not (opacity: progress(1, 0, 100)) {
+    input[type="range"].oct-slider {
+      --slider-progress: calc((var(--control-value) - var(--attr-min)) / (var(--attr-max) - var(--attr-min)) * 100%);
+    }
+  }
+  input[type="range"].oct-slider::-webkit-slider-runnable-track {
+    block-size: var(--slider-track-size);
+    border: 0;
+    border-radius: var(--slider-track-radius);
+    background: linear-gradient(
+      var(--slider-direction),
+      var(--slider-fill-color) var(--slider-progress),
+      var(--slider-track-color) var(--slider-progress)
+    );
+  }
+  input[type="range"].oct-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    inline-size: var(--slider-thumb-size);
+    block-size: var(--slider-thumb-size);
+    margin-block-start: calc((var(--slider-track-size) - var(--slider-thumb-size)) / 2);
+    border: 0;
+    border-radius: var(--slider-thumb-radius);
+    background: var(--slider-thumb-color);
+  }
+  input[type="range"].oct-slider::-moz-range-track {
+    block-size: var(--slider-track-size);
+    border: 0;
+    border-radius: var(--slider-track-radius);
+    background: var(--slider-track-color);
+  }
+  input[type="range"].oct-slider::-moz-range-progress {
+    block-size: var(--slider-track-size);
+    border-radius: var(--slider-track-radius);
+    background: var(--slider-fill-color);
+  }
+  input[type="range"].oct-slider::-moz-range-thumb {
+    inline-size: var(--slider-thumb-size);
+    block-size: var(--slider-thumb-size);
+    border: 0;
+    border-radius: var(--slider-thumb-radius);
+    background: var(--slider-thumb-color);
+  }
+  input[type="range"].oct-slider:focus-visible {
+    outline: 2px solid var(--slider-fill-color);
+    outline-offset: 3px;
+  }
+
+  #container { display: flex; height: calc(100vh - 52px); }
+  #sidebar { width: 320px; overflow-y: auto; background: #f5f7fb; padding: 10px; border-right: 1px solid #d9dfe9; }
+  #map { flex: 1; min-width: 240px; }
+  #drawer { width: 380px; overflow-y: auto; background: #ffffff; padding: 12px; border-left: 1px solid #d9dfe9; }
+  .site {
+    padding: 8px 10px;
+    margin: 6px 0;
+    background: #fff;
+    border: 1px solid #d5dbe6;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .site:hover { background: #eef4ff; }
+  .site.active { background: #dceaff; border-color: #2f66c8; }
+  .site-meta { font-size: 12px; color: #47546b; margin-top: 2px; }
+  .site-sub { font-size: 11px; color: #5f6c82; margin-top: 3px; }
+  .badge {
+    display: inline-block;
+    padding: 2px 7px;
+    margin: 2px 4px 2px 0;
+    background: #fdf0ef;
+    border: 1px solid #d99b96;
+    color: #7d2520;
+    border-radius: 4px;
+    font-size: 11px;
+  }
+  .card { background: #f8fafe; border: 1px solid #dbe3ef; padding: 8px 10px; margin: 6px 0; border-radius: 6px; font-size: 12px; }
+  .muted { color: #616e84; font-size: 12px; }
+  h3 { margin: 4px 0 8px; font-size: 15px; }
+  h4 { margin: 12px 0 6px; font-size: 13px; color: #273247; }
+  table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  td, th { border: 1px solid #dfe4ed; padding: 4px 6px; text-align: left; }
+  th { background: #f1f4f9; }
 </style>
 </head>
 <body>
 <div id="topbar">
-  <label>Target:
+  <label for="target">Target:
     <select id="target"></select>
   </label>
-  <label>Domain:
+  <label for="domain">Domain:
     <select id="domain">
       <option value="composite">Composite Fused</option>
       <option value="topography">Topography</option>
       <option value="mineralogy">Mineralogy</option>
-      <option value="thermal_illumination">Thermal & Illumination</option>
-      <option value="granular_aeolian">Granular & Aeolian</option>
-      <option value="volatiles_subsurface">Volatiles & Subsurface</option>
+      <option value="thermal_illumination">Thermal &amp; Illumination</option>
+      <option value="granular_aeolian">Granular &amp; Aeolian</option>
+      <option value="volatiles_subsurface">Volatiles &amp; Subsurface</option>
     </select>
   </label>
-  <label>Octave:
-    <input type="range" id="octave" min="0" max="4" value="0">
+  <label for="octave">Octave:
+    <input type="range" id="octave" class="oct-slider" min="0" max="4" step="1" value="0" aria-valuetext="30 m/px">
     <span id="octval">30 m</span>
   </label>
-  <label><input type="checkbox" id="novelty" checked> Novelty Mask (150km)</label>
+  <label for="novelty">
+    <input type="checkbox" id="novelty" checked> Novelty Mask (150 km)
+  </label>
 </div>
 <div id="container">
   <div id="sidebar">
     <h3>Ranked Analogs</h3>
-    <div id="sites"></div>
+    <div id="sites" class="muted">Loading sites...</div>
   </div>
   <div id="map"></div>
   <div id="drawer">
     <h3>Scientific Breakdown</h3>
-    <div id="info">Select a site.</div>
+    <div id="info" class="muted">Select an Earth analog site.</div>
   </div>
 </div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-const octLabels = ["30 m","60 m","120 m","240 m","480 m"];
-const map = L.map('map').setView([20,0],2);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18}).addTo(map);
+const octLabels = ["30 m", "60 m", "120 m", "240 m", "480 m"];
+const map = L.map("map").setView([20, 0], 2);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18 }).addTo(map);
+
+const maskLayer = L.layerGroup().addTo(map);
 let markers = [];
 let overlay = null;
 let selectedSite = null;
 let radarChart = null;
 
-async function loadTargets(){
-  const r = await fetch('/targets'); const d = await r.json();
-  const sel = document.getElementById('target');
-  d.targets.forEach(t=>{ const o=document.createElement('option'); o.value=t; o.text=t; sel.appendChild(o); });
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined && text !== null) node.textContent = String(text);
+  return node;
 }
 
-async function loadSites(){
-  const target = document.getElementById('target').value;
-  const novelty = document.getElementById('novelty').checked;
-  const url = '/api/discoveries?target_id='+encodeURIComponent(target)+'&novelty_masked='+novelty;
-  const r = await fetch(url);
+function getComposite(s) {
+  const v = s.composite_score ?? s.composite ?? 0;
+  return Number.isFinite(Number(v)) ? Number(v) : 0;
+}
+
+function getScaleInv(s) {
+  const v = s.scale_invariance_index ?? s.scale_invariance ?? 0;
+  return Number.isFinite(Number(v)) ? Number(v) : 0;
+}
+
+function getNovelty(s) {
+  const v = s.novelty_weight ?? 1;
+  return Number.isFinite(Number(v)) ? Number(v) : 1;
+}
+
+function syncSliderValue() {
+  const slider = document.getElementById("octave");
+  slider.style.setProperty("--attr-min", slider.min || "0");
+  slider.style.setProperty("--attr-max", slider.max || "4");
+  slider.style.setProperty("--control-value", slider.value);
+  const label = octLabels[Number(slider.value)] || "30 m";
+  document.getElementById("octval").textContent = label;
+  slider.setAttribute("aria-valuetext", label + "/px");
+}
+
+async function loadKnownAnalogs() {
+  try {
+    const r = await fetch("/api/geojson/known-analogs");
+    if (!r.ok) return;
+    const fc = await r.json();
+    maskLayer.clearLayers();
+    (fc.features || []).forEach((feat) => {
+      const coords = feat?.geometry?.coordinates;
+      if (!Array.isArray(coords) || coords.length < 2) return;
+      const lon = Number(coords[0]);
+      const lat = Number(coords[1]);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+      const props = feat.properties || {};
+      const bufKm = Number(props.buffer_km || 150);
+      const circle = L.circle([lat, lon], {
+        radius: bufKm * 1000,
+        color: "#c0392b",
+        weight: 1.5,
+        fillColor: "#e74c3c",
+        fillOpacity: 0.14,
+      });
+      const pop = el("div", null);
+      pop.appendChild(el("strong", null, props.name || "Known Analog"));
+      pop.appendChild(document.createElement("br"));
+      pop.appendChild(document.createTextNode("Exclusion buffer: " + bufKm + " km"));
+      circle.bindPopup(pop);
+      circle.addTo(maskLayer);
+    });
+    syncMaskVisibility();
+  } catch (e) {
+    // non-fatal if GeoJSON endpoint is unreachable
+  }
+}
+
+function syncMaskVisibility() {
+  const checked = document.getElementById("novelty").checked;
+  if (checked && !map.hasLayer(maskLayer)) {
+    maskLayer.addTo(map);
+  } else if (!checked && map.hasLayer(maskLayer)) {
+    map.removeLayer(maskLayer);
+  }
+}
+
+async function loadTargets() {
+  const r = await fetch("/targets");
+  const d = await r.json();
+  const sel = document.getElementById("target");
+  sel.replaceChildren();
+  (d.targets || []).forEach((t) => {
+    const o = document.createElement("option");
+    o.value = t;
+    o.textContent = t;
+    sel.appendChild(o);
+  });
+}
+
+async function loadSites() {
+  const target = document.getElementById("target").value;
+  const novelty = document.getElementById("novelty").checked;
+  const box = document.getElementById("sites");
+  const url = "/api/discoveries?target_id=" + encodeURIComponent(target) + "&novelty_masked=" + novelty;
   let sites = [];
-  try { sites = (await r.json()).sites || []; } catch(e){ sites=[]; }
-  const box = document.getElementById('sites');
-  box.innerHTML = '';
-  markers.forEach(m=>map.removeLayer(m)); markers=[];
-  sites.forEach((s,i)=>{
-    const div = document.createElement('div'); div.className='site'; div.id='site-'+i;
-    div.innerHTML = '<b>'+s.site_id+'</b><br>Composite: '+(s.composite||0).toFixed(3)+' | SI: '+(s.scale_invariance||0).toFixed(3)+' | Novelty: '+(s.novelty_weight||1).toFixed(2)+'<br><small>'+ (s.use_case||'') +'</small>';
-    div.onclick = ()=>selectSite(s,div);
+  try {
+    const r = await fetch(url);
+    sites = ((await r.json()).sites) || [];
+  } catch (e) {
+    sites = [];
+  }
+
+  box.replaceChildren();
+  markers.forEach((m) => map.removeLayer(m));
+  markers = [];
+
+  if (!sites.length) {
+    box.appendChild(el("div", "card muted", "No discovery results generated yet for this target. Run fusion/run_discovery_sweep.py to populate ./data_lake/results/."));
+    return;
+  }
+
+  sites.forEach((s, i) => {
+    const div = el("div", "site");
+    div.id = "site-" + i;
+    const title = el("strong", null, (i + 1) + ". " + (s.site_id || "unknown"));
+    const meta = el(
+      "div",
+      "site-meta",
+      "Score: " + getComposite(s).toFixed(3) +
+      " | SI: " + getScaleInv(s).toFixed(3) +
+      " | Novelty: " + getNovelty(s).toFixed(2)
+    );
+    const sub = el("div", "site-sub", s.operational_test_protocol || s.use_case || "");
+    div.append(title, meta, sub);
+    div.addEventListener("click", () => selectSite(s, div));
     box.appendChild(div);
-    if(s.lat!=null && s.lon!=null){
-      const m = L.marker([s.lat,s.lon]).addTo(map).bindPopup(s.site_id);
-      m.on('click',()=>selectSite(s,div));
+
+    const lat = s.lat ?? s.coordinates?.lat;
+    const lon = s.lon ?? s.coordinates?.lon;
+    if (lat != null && lon != null && Number.isFinite(Number(lat)) && Number.isFinite(Number(lon))) {
+      const pop = el("div", null);
+      pop.appendChild(el("strong", null, s.site_id || ""));
+      pop.appendChild(document.createElement("br"));
+      pop.appendChild(document.createTextNode("Composite: " + getComposite(s).toFixed(3)));
+      const m = L.marker([Number(lat), Number(lon)]).addTo(map).bindPopup(pop);
+      m.on("click", () => selectSite(s, div));
       markers.push(m);
     }
   });
-  if(sites.length && sites[0].lat!=null) map.setView([sites[0].lat,sites[0].lon],4);
+
+  const firstLat = sites[0].lat ?? sites[0].coordinates?.lat;
+  const firstLon = sites[0].lon ?? sites[0].coordinates?.lon;
+  if (firstLat != null && firstLon != null) {
+    map.setView([Number(firstLat), Number(firstLon)], 4);
+  }
 }
 
-async function selectSite(s, div){
-  document.querySelectorAll('.site').forEach(x=>x.classList.remove('active'));
-  if(div) div.classList.add('active');
+async function selectSite(s, div) {
+  document.querySelectorAll(".site").forEach((x) => x.classList.remove("active"));
+  if (div) div.classList.add("active");
   selectedSite = s;
-  const octave = document.getElementById('octave').value;
-  const domain = document.getElementById('domain').value;
-  const layer = (domain==='composite')?'topography':domain;
-  // load heatmap overlay
-  if(overlay){ map.removeLayer(overlay); overlay=null; }
-  const url = '/api/heatmap/'+encodeURIComponent(s.site_id)+'/'+encodeURIComponent(document.getElementById('target').value)+'/'+layer+'/'+octave+'.png';
+
+  const octave = document.getElementById("octave").value;
+  const domain = document.getElementById("domain").value;
+  const target = document.getElementById("target").value;
+
+  if (overlay) {
+    map.removeLayer(overlay);
+    overlay = null;
+  }
+
+  const lat = Number(s.lat ?? s.coordinates?.lat ?? 0);
+  const lon = Number(s.lon ?? s.coordinates?.lon ?? 0);
+  const b = Array.isArray(s.bbox) && s.bbox.length === 4
+    ? s.bbox.map(Number)
+    : [lat - 0.12, lon - 0.12, lat + 0.12, lon + 0.12];
+
+  const hmUrl =
+    "/api/heatmap/" + encodeURIComponent(s.site_id) +
+    "/" + encodeURIComponent(target) +
+    "/" + encodeURIComponent(domain) +
+    "/" + encodeURIComponent(octave) + ".png";
+
   const img = new Image();
-  img.onload = ()=>{
-    const b = s.bbox || [s.lat-0.5,s.lon-0.5,s.lat+0.5,s.lon+0.5];
-    overlay = L.imageOverlay(url, [[b[0],b[1]],[b[2],b[3]]], {opacity:0.6}).addTo(map);
+  img.onload = () => {
+    if (overlay) map.removeLayer(overlay);
+    overlay = L.imageOverlay(hmUrl, [[b[0], b[1]], [b[2], b[3]]], { opacity: 0.65 }).addTo(map);
   };
-  img.src = url;
-  // load breakdown
-  const bp = s.breakdown_path || '';
-  const r = await fetch('/breakdown/'+encodeURIComponent(s.site_id)+(bp?'?path='+encodeURIComponent(bp):''));
-  const d = await r.json();
-  const info = document.getElementById('info');
-  const bd = d.breakdown || {};
-  let html = '<b>'+s.site_id+'</b><br>';
-  html += 'Composite: '+(s.composite||0).toFixed(3)+' | SI: '+(s.scale_invariance||0).toFixed(3)+'<br>';
-  html += '<h4>Breakdown Flags</h4>';
-  (bd.physical_breakdown_flags||[]).forEach(f=>{ html += '<span class="badge">'+f.flag+'</span> '; });
-  html += '<h4>Channel Residuals</h4><table><tr><th>Ch</th><th>Earth</th><th>Target</th><th>Z</th></tr>';
-  const cr = bd.channel_residuals||{};
-  Object.keys(cr).forEach(k=>{ const v=cr[k]; html += '<tr><td>'+k+'</td><td>'+v.earth_mean.toFixed(3)+'</td><td>'+v.target_mean.toFixed(3)+'</td><td>'+v.z_divergence.toFixed(3)+'</td></tr>'; });
-  html += '</table>';
-  html += '<h4>Mission Test</h4><div class="card">'+(bd.operational_test_protocol||s.use_case||'N/A')+'</div>';
-  info.innerHTML = html;
-  // radar chart
-  const ctx = document.getElementById('radar');
-  if(!ctx){ const c=document.createElement('canvas'); c.id='radar'; info.appendChild(c); }
+  img.src = hmUrl;
+
+  let bd = {};
+  try {
+    const bp = s.breakdown_path || "";
+    const qs = bp ? "?path=" + encodeURIComponent(bp) : "?target_id=" + encodeURIComponent(target);
+    const r = await fetch("/breakdown/" + encodeURIComponent(s.site_id) + qs);
+    const d = await r.json();
+    bd = (d && typeof d.breakdown === "object" && d.breakdown) ? d.breakdown : {};
+  } catch (e) {
+    bd = {};
+  }
+
+  const info = document.getElementById("info");
+  info.replaceChildren();
+  info.appendChild(el("strong", null, s.site_id || ""));
+  info.appendChild(el(
+    "div",
+    "site-meta",
+    "Composite: " + getComposite(s).toFixed(3) +
+    " | SI: " + getScaleInv(s).toFixed(3) +
+    " | Novelty: " + getNovelty(s).toFixed(2)
+  ));
+
+  info.appendChild(el("h4", null, "Breakdown Flags"));
+  const flagWrap = el("div", null);
+  const flags = Array.isArray(bd.physical_breakdown_flags) ? bd.physical_breakdown_flags : [];
+  if (flags.length) {
+    flags.forEach((f) => flagWrap.appendChild(el("span", "badge", f.flag || "FLAG")));
+  } else {
+    flagWrap.appendChild(el("span", "muted", "No flags reported."));
+  }
+  info.appendChild(flagWrap);
+
+  info.appendChild(el("h4", null, "Channel Residuals"));
+  const cr = bd.channel_residuals || {};
+  const crKeys = Object.keys(cr);
+  if (crKeys.length) {
+    const tbl = el("table", null);
+    const hdrRow = el("tr", null);
+    ["Ch", "Earth", "Target", "Z-Div"].forEach((h) => hdrRow.appendChild(el("th", null, h)));
+    tbl.appendChild(hdrRow);
+    crKeys.slice(0, 20).forEach((k) => {
+      const v = cr[k] || {};
+      const tr = el("tr", null);
+      tr.appendChild(el("td", null, k));
+      tr.appendChild(el("td", null, Number(v.earth_mean ?? 0).toFixed(3)));
+      tr.appendChild(el("td", null, Number(v.target_mean ?? 0).toFixed(3)));
+      tr.appendChild(el("td", null, Number(v.z_divergence ?? 0).toFixed(3)));
+      tbl.appendChild(tr);
+    });
+    info.appendChild(tbl);
+  } else {
+    info.appendChild(el("div", "muted", "No channel residuals available."));
+  }
+
+  info.appendChild(el("h4", null, "Mission Test Protocol"));
+  info.appendChild(el("div", "card", bd.operational_test_protocol || s.operational_test_protocol || s.use_case || "N/A"));
+
   const scores = s.domain_scores || {};
   const labels = Object.keys(scores);
-  const vals = Object.values(scores);
-  if(radarChart) radarChart.destroy();
-  radarChart = new Chart(document.getElementById('radar'), { type:'radar',
-    data:{ labels:labels, datasets:[{label:s.site_id, data:vals, backgroundColor:'rgba(54,162,235,0.2)', borderColor:'rgba(54,162,235,1)'}]},
-    options:{ scales:{r:{min:0,max:1}} }
-  });
+  const vals = Object.values(scores).map((x) => Number(x) || 0);
+  if (labels.length && typeof Chart !== "undefined") {
+    info.appendChild(el("h4", null, "Domain Similarity Profile"));
+    const canvas = document.createElement("canvas");
+    canvas.id = "radar";
+    info.appendChild(canvas);
+    if (radarChart) radarChart.destroy();
+    radarChart = new Chart(canvas, {
+      type: "radar",
+      data: {
+        labels: labels,
+        datasets: [{
+          label: s.site_id,
+          data: vals,
+          backgroundColor: "rgba(54, 162, 235, 0.2)",
+          borderColor: "rgba(54, 162, 235, 1)",
+        }],
+      },
+      options: { scales: { r: { min: 0, max: 1 } } },
+    });
+  }
 }
 
-document.getElementById('target').addEventListener('change', loadSites);
-document.getElementById('domain').addEventListener('change', ()=>{ if(selectedSite) selectSite(selectedSite, document.querySelector('.site.active')); });
-document.getElementById('octave').addEventListener('input', e=>{
-  document.getElementById('octval').innerText = octLabels[e.target.value];
-  if(selectedSite) selectSite(selectedSite, document.querySelector('.site.active'));
+document.getElementById("target").addEventListener("change", loadSites);
+document.getElementById("domain").addEventListener("change", () => {
+  if (selectedSite) selectSite(selectedSite, document.querySelector(".site.active"));
 });
-document.getElementById('novelty').addEventListener('change', loadSites);
+document.getElementById("octave").addEventListener("input", () => {
+  syncSliderValue();
+  if (selectedSite) selectSite(selectedSite, document.querySelector(".site.active"));
+});
+document.getElementById("novelty").addEventListener("change", async () => {
+  const enabled = document.getElementById("novelty").checked;
+  syncMaskVisibility();
+  try { await fetch("/novelty-mask?enabled=" + enabled); } catch (e) {}
+  loadSites();
+});
 
+syncSliderValue();
+loadKnownAnalogs();
 loadTargets().then(loadSites);
 </script>
 </body>
