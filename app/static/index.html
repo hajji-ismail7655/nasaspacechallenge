@@ -189,7 +189,7 @@ function el(tag, className, text) {
 }
 
 function getComposite(s) {
-  const v = s.composite_score ?? s.composite ?? 0;
+  const v = s.composite ?? s.composite_score ?? 0;
   return Number.isFinite(Number(v)) ? Number(v) : 0;
 }
 
@@ -285,6 +285,17 @@ async function loadSites() {
   box.replaceChildren();
   markers.forEach((m) => map.removeLayer(m));
   markers = [];
+  if (overlay) {
+    map.removeLayer(overlay);
+    overlay = null;
+  }
+  selectedSite = null;
+  if (radarChart) {
+    radarChart.destroy();
+    radarChart = null;
+  }
+  const info = document.getElementById("info");
+  info.replaceChildren(el("div", "muted", "Select an Earth analog site."));
 
   if (!sites.length) {
     box.appendChild(el("div", "card muted", "No discovery results generated yet for this target. Run fusion/run_discovery_sweep.py to populate ./data_lake/results/."));
@@ -355,6 +366,7 @@ async function selectSite(s, div) {
 
   const img = new Image();
   img.onload = () => {
+    if (selectedSite !== s || document.getElementById("target").value !== target) return;
     if (overlay) map.removeLayer(overlay);
     overlay = L.imageOverlay(hmUrl, [[b[0], b[1]], [b[2], b[3]]], { opacity: 0.65 }).addTo(map);
   };

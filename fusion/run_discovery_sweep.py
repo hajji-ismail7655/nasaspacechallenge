@@ -410,14 +410,16 @@ def run_sweep(
                 "composite_hmap_path": os.path.abspath(comp_hmap_path),
             })
 
-    novel_ranked = sorted(
-        entries,
-        key=lambda r: (r["novel_composite_score"], r["scale_invariance_index"]),
-        reverse=True,
-    )
+    novel_ranked = []
+    for row in sorted(entries, key=lambda r: (r["novel_composite_score"], r["scale_invariance_index"]), reverse=True):
+        copy_row = dict(row)
+        copy_row["composite_score"] = row["novel_composite_score"]
+        copy_row["composite"] = row["novel_composite_score"]
+        novel_ranked.append(copy_row)
     unmasked_ranked = []
     for row in sorted(entries, key=lambda r: (r["unmasked_composite_score"], r["scale_invariance_index"]), reverse=True):
         copy_row = dict(row)
+        copy_row["composite_score"] = row["unmasked_composite_score"]
         copy_row["composite"] = row["unmasked_composite_score"]
         unmasked_ranked.append(copy_row)
 

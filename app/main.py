@@ -158,14 +158,15 @@ def known_analogs():
 
 
 def _locate_hmap(site_id: str, target_id: str, domain: str):
-    exact = os.path.join(DATA, "results", f"{site_id}_{target_id}_{domain}.hmap")
+    target_name = f"{site_id}_{target_id}_{domain}.hmap"
+    exact = os.path.join(DATA, "results", target_name)
     if os.path.exists(exact) and _inside_data(exact):
         return exact
     if not os.path.isdir(DATA):
         return None
     for root, _, files in os.walk(DATA):
         for fn in files:
-            if fn.endswith(".hmap") and site_id in fn and target_id in fn and domain in fn:
+            if fn == target_name:
                 cand = os.path.join(root, fn)
                 if _inside_data(cand):
                     return cand
