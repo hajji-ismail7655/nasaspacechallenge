@@ -239,8 +239,8 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
                         zc = (float)(zr / 0.5);
                         if (zc < -5) zc = -5; if (zc > 5) zc = 5;
                     }
-                    double gx = (j > 0) ? std::fabs(zc - ( [&](){ if (c < (int)nc) { float vv = tbase[to+((size_t)c*th_Hk+i)*th_Wk+(j-1)]; if (vv==nodata_val) return 0.0f; float zz=(float)((vv-REF_MU[c])/REF_SIG[c]); if(zz<-5)zz=-5; if(zz>5)zz=5; return zz;} else { float v1n = tbase[to + (1 * th_Hk + (c>= (int)nc?0:0) )]; return 0.0f;} }() )) : 0.0;
-                    double gy = (i > 0) ? std::fabs(zc - ( [&](){ if (c < (int)nc) { float vv = tbase[to+((size_t)c*th_Hk+(i-1))*th_Wk+j]; if (vv==nodata_val) return 0.0f; float zz=(float)((vv-REF_MU[c])/REF_SIG[c]); if(zz<-5)zz=-5; if(zz>5)zz=5; return zz;} else { float v1n = tbase[to + (1 * th_Hk + (c>= (int)nc?0:0) )]; return 0.0f;} }() )) : 0.0;
+                    double gx = (j > 0) ? std::fabs(zc - ( [&](){ if (c < (int)nc) { float vv = tbase[to+((size_t)c*th_Hk+i)*th_Wk+(j-1)]; if (vv==nodata_val) return 0.0f; float zz=(float)((vv-REF_MU[c])/REF_SIG[c]); if(zz<-5)zz=-5; if(zz>5)zz=5; return zz;} else { float v1n = tbase[to + (1 * th_Hk + i) * th_Wk + (j-1)]; float v2n = tbase[to + (2 * th_Hk + i) * th_Wk + (j-1)]; if (v1n == nodata_val || v2n == nodata_val) return 0.0f; double zr = std::sin(v1n * M_PI / 180.0) * std::cos(v2n * M_PI / 180.0); float zz = (float)(zr / 0.5); if (zz < -5.0f) zz = -5.0f; if (zz > 5.0f) zz = 5.0f; return zz; } }() )) : 0.0;
+                    double gy = (i > 0) ? std::fabs(zc - ( [&](){ if (c < (int)nc) { float vv = tbase[to+((size_t)c*th_Hk+(i-1))*th_Wk+j]; if (vv==nodata_val) return 0.0f; float zz=(float)((vv-REF_MU[c])/REF_SIG[c]); if(zz<-5)zz=-5; if(zz>5)zz=5; return zz;} else { float v1n = tbase[to + (1 * th_Hk + (i-1)) * th_Wk + j]; float v2n = tbase[to + (2 * th_Hk + (i-1)) * th_Wk + j]; if (v1n == nodata_val || v2n == nodata_val) return 0.0f; double zr = std::sin(v1n * M_PI / 180.0) * std::cos(v2n * M_PI / 180.0); float zz = (float)(zr / 0.5); if (zz < -5.0f) zz = -5.0f; if (zz > 5.0f) zz = 5.0f; return zz; } }() )) : 0.0;
                     tsum += std::sqrt(gx*gx + gy*gy);
                     tcnt++;
                 }
@@ -475,8 +475,6 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
             fprintf(f, "    {\"flag\": \"RADIATION_DELTA\", \"radiation_delta_msv_yr\": %.6f},\n", (double)std::fabs(eh->radiation_msv_yr - th->radiation_msv_yr));
             if (th->body == 2 && eh->body == 1)
                 fprintf(f, "    {\"flag\": \"NO_ATMOSPHERE_TARGET\", \"details\": \"Target body has no atmosphere.\"}\n");
-            else
-                fprintf(f, "    {\"flag\": \"NONE\", \"details\": \"n/a\"}\n");
             fprintf(f, "  ]\n");
             fprintf(f, "}\n");
             fclose(f);
