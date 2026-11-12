@@ -253,7 +253,9 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
             fprintf(f, "  \"physical_breakdown_flags\": [\n");
             fprintf(f, "    {\"flag\": \"GRAVITY_SCALING\", \"gravity_scaling_factor\": %.6f},\n", (double)th->gravity_ms2 / (double)eh->gravity_ms2);
             fprintf(f, "    {\"flag\": \"ATMOSPHERE_GAP\", \"atmospheric_pressure_gap_pa\": %.6f},\n", (double)std::fabs(eh->surface_pressure_pa - th->surface_pressure_pa));
-            fprintf(f, "    {\"flag\": \"RADIATION_DELTA\", \"radiation_delta_msv_yr\": %.6f}\n", (double)std::fabs(eh->radiation_msv_yr - th->radiation_msv_yr));
+            fprintf(f, "    {\"flag\": \"RADIATION_DELTA\", \"radiation_delta_msv_yr\": %.6f},\n", (double)std::fabs(eh->radiation_msv_yr - th->radiation_msv_yr));
+            fprintf(f, "    {\"flag\": \"CRYOGENIC_FLOOR_DELTA\", \"thermal_floor_delta_k\": %.6f},\n", (double)(0.0));
+            fprintf(f, "    {\"flag\": \"THERMAL_TEST_CHAMBER_CORRECTION\", \"details\": \"Apply thermal vacuum chamber correction.\"}\n");
             fprintf(f, "  ]\n");
             fprintf(f, "}\n");
             fclose(f);
