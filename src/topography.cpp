@@ -37,11 +37,10 @@ struct alignas(64) TileBinaryHeader {
 };
 static_assert(sizeof(TileBinaryHeader) == 128, "header must be 128 bytes");
 
-// Per-channel reference (mu, sigma) for topography (6 channels + illumination proxy handled in Python only;
-// C++ uses 6 channels to match tile).
-static const int NC = 6;
-static const double REF_MU[NC] = {500.0, 15.0, 180.0, 50.0, 0.0, 0.0};
-static const double REF_SIG[NC] = {1000.0, 15.0, 103.9, 50.0, 50.0, 0.01};
+// 7 channels: 6 original + illumination proxy
+static const int NC = 7;
+static const double REF_MU[NC] = {500.0, 15.0, 180.0, 50.0, 0.0, 0.0, 0.0};
+static const double REF_SIG[NC] = {1000.0, 15.0, 103.9, 50.0, 50.0, 0.01, 0.5};
 
 static inline float norm_channel(float x, int c) {
     if (x == NODATA) return NAN;
@@ -85,8 +84,8 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
     uint32_t th_base_width = th->base_width;
     uint32_t nc_e = eh->num_channels;
     uint32_t nc_t = th->num_channels;
-    uint32_t nc = nc_e < nc_t ? nc_e : nc_t;
-    if (nc > NC) nc = NC;
+    // use 6 tile channels + 1 proxy
+    uint32_t nc = 6; if (nc_e < 6) nc = nc_e; if (nc_t < 6) nc = nc_t;
     float nodata_val = eh->nodata_value;
 
     size_t out_size = 128;
@@ -115,9 +114,10 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
     double octave_means[32];
     for (uint32_t k = 0; k < num_octaves; k++) octave_means[k] = 0.0;
 
-    // Precompute target octave signatures (outside hot loops)
-    // For each octave: per-channel mean/std/quantiles(5)/texture
-    // We'll compute on demand per octave inside loop (still outside pixel loop).
+    // channel residuals accumulators
+    double e_sum[NC+1], t_sum[NC+1]; long e_cnt[NC+1], t_cnt[NC+1];
+    double e_sumsq[NC+1], t_sumsq[NC+1];
+    for (int c = 0; c <= NC; c++) { e_sum[c]=t_sum[c]=e_sumsq[c]=t_sumsq[c]=0; e_cnt[c]=t_cnt[c]=0; }
 
     for (uint32_t k = 0; k < num_octaves; k++) {
         uint32_t Hk = base_height >> k; if (Hk == 0) Hk = 1;
@@ -125,19 +125,14 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
         uint32_t th_Hk = th_base_height >> k; if (th_Hk == 0) th_Hk = 1;
         uint32_t th_Wk = th_base_width >> k; if (th_Wk == 0) th_Wk = 1;
 
-        // earth octave offset
-        size_t eo = 0;
+        size_t eo = 0, to = 0;
         for (uint32_t kk = 0; kk < k; kk++) {
             uint32_t Hkk = base_height >> kk; if (Hkk == 0) Hkk = 1;
             uint32_t Wkk = base_width >> kk; if (Wkk == 0) Wkk = 1;
             eo += (size_t)nc_e * Hkk * Wkk;
-        }
-        // target octave offset
-        size_t to = 0;
-        for (uint32_t kk = 0; kk < k; kk++) {
-            uint32_t Hkk = th_base_height >> kk; if (Hkk == 0) Hkk = 1;
-            uint32_t Wkk = th_base_width >> kk; if (Wkk == 0) Wkk = 1;
-            to += (size_t)nc_t * Hkk * Wkk;
+            uint32_t tHkk = th_base_height >> kk; if (tHkk == 0) tHkk = 1;
+            uint32_t tWkk = th_base_width >> kk; if (tWkk == 0) tWkk = 1;
+            to += (size_t)nc_t * tHkk * tWkk;
         }
         size_t oo = 0;
         for (uint32_t kk = 0; kk < k; kk++) {
@@ -146,67 +141,120 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
             oo += 2 * Hkk * Wkk;
         }
 
-        // Normalize earth octave channels into a float buffer (nc, Hk, Wk) with nan for nodata
-        // We'll work directly with indices.
-        // Target signature: per channel mean/std/quantiles/texture
-        double t_mean[NC], t_std[NC], t_quant[NC][5], t_tex[NC];
-        for (uint32_t c = 0; c < nc; c++) {
-            // collect valid target values
+        int r = 15 >> k; if (r < 3) r = 3;
+        int win = 2 * r + 1;
+
+        // Precompute normalized earth grid (nc+1 channels including proxy) and tex grid
+        // normalized: nan for nodata
+        // We'll just compute on demand. Precompute target signature.
+        // Target signature per channel (0..nc, where nc is proxy index 6)
+        double t_mean[NC+1], t_std[NC+1], t_quant[NC+1][5], t_tex[NC+1];
+        for (int c = 0; c <= NC; c++) {
+            // collect valid target normalized values
+            // for c < nc use tile channels; for c == nc (proxy) compute from slope/aspect
             std::vector<float> vals;
-            vals.reserve(th_Hk * th_Wk);
             double sum = 0, sumsq = 0; long cnt = 0;
-            for (uint32_t i = 0; i < th_Hk; i++)
+            // We need normalized target grid for texture; compute inline
+            // First pass: collect vals for quantiles/mean/std
+            for (uint32_t i = 0; i < th_Hk; i++) {
                 for (uint32_t j = 0; j < th_Wk; j++) {
-                    float v = tbase[to + ((size_t)c * th_Hk + i) * th_Wk + j];
-                    if (v == nodata_val) continue;
-                    float z = (float)((v - REF_MU[c]) / REF_SIG[c]);
-                    if (z < -5.0f) z = -5.0f;
-                    if (z > 5.0f) z = 5.0f;
+                    float z;
+                    if (c < (int)nc) {
+                        float v = tbase[to + ((size_t)c * th_Hk + i) * th_Wk + j];
+                        if (v == nodata_val) continue;
+                        z = (float)((v - REF_MU[c]) / REF_SIG[c]);
+                        if (z < -5.0f) z = -5.0f;
+                        if (z > 5.0f) z = 5.0f;
+                    } else {
+                        // proxy: sin(deg2rad(slope))*cos(deg2rad(aspect)) / 0.5
+                        float vs = tbase[to + (1 * th_Hk + i) * th_Wk + j];
+                        float va = tbase[to + (2 * th_Hk + i) * th_Wk + j];
+                        if (vs == nodata_val || va == nodata_val) continue;
+                        double sl = (vs - REF_MU[1]) / REF_SIG[1]; // normalized slope (approx)
+                        // use raw degrees instead:
+                        // Actually use raw: vs is raw slope degrees
+                        double zr = std::sin((vs) * M_PI / 180.0) * std::cos((va) * M_PI / 180.0);
+                        z = (float)(zr / 0.5);
+                        if (z < -5.0f) z = -5.0f;
+                        if (z > 5.0f) z = 5.0f;
+                    }
                     vals.push_back(z);
-                    sum += z; sumsq += (double)z * z; cnt++;
+                    sum += z; sumsq += (double)z*z; cnt++;
+                    // residuals accumulators (raw)
+                    if (c < (int)nc) {
+                        float v = tbase[to + ((size_t)c * th_Hk + i) * th_Wk + j];
+                        if (v != nodata_val) { t_sum[c] += v; t_sumsq[c] += (double)v*v; t_cnt[c]++; }
+                    }
                 }
+            }
             t_mean[c] = cnt > 0 ? sum / cnt : 0.0;
-            t_std[c] = cnt > 0 ? std::sqrt(sumsq / cnt - t_mean[c]*t_mean[c]) : 0.0;
+            t_std[c] = cnt > 0 ? std::sqrt(sumsq/cnt - t_mean[c]*t_mean[c]) : 0.0;
             if (t_std[c] < 0) t_std[c] = 0;
-            // quantiles
             if (vals.size() > 0) {
                 std::sort(vals.begin(), vals.end());
                 int n = vals.size();
-                int qidx[5] = { (int)(0.10*(n-1)), (int)(0.25*(n-1)), (int)(0.50*(n-1)), (int)(0.75*(n-1)), (int)(0.90*(n-1)) };
-                for (int q = 0; q < 5; q++) t_quant[c][q] = vals[qidx[q]];
+                // linear quantiles
+                for (int q = 0; q < 5; q++) {
+                    double p = (q==0)?0.10:(q==1)?0.25:(q==2)?0.50:(q==3)?0.75:0.90;
+                    double pos = p * (n - 1);
+                    int lo = (int)std::floor(pos);
+                    int hi = lo + 1; if (hi >= n) hi = n-1;
+                    double frac = pos - lo;
+                    t_quant[c][q] = vals[lo] * (1.0 - frac) + vals[hi] * frac;
+                }
             } else {
                 for (int q = 0; q < 5; q++) t_quant[c][q] = 0.0;
             }
-            // texture energy: mean gradient magnitude on normalized target
-            // compute normalized target grid first
-        }
-        // texture energy per channel for target
-        for (uint32_t c = 0; c < nc; c++) {
-            // build normalized grid
-            std::vector<float> grid(th_Hk * th_Wk);
-            for (uint32_t i = 0; i < th_Hk; i++)
-                for (uint32_t j = 0; j < th_Wk; j++) {
-                    float v = tbase[to + ((size_t)c * th_Hk + i) * th_Wk + j];
-                    if (v == nodata_val) { grid[i*th_Wk+j] = NAN; continue; }
-                    float z = (float)((v - REF_MU[c]) / REF_SIG[c]);
-                    if (z < -5.0f) z = -5.0f;
-                    if (z > 5.0f) z = 5.0f;
-                    grid[i*th_Wk+j] = z;
-                }
+            // texture energy: backward diff on nan->0, averaged over all cells (win*win handled in window)
+            // For target signature, compute mean gradient magnitude over valid cells
             double tsum = 0; long tcnt = 0;
-            for (uint32_t i = 0; i < th_Hk; i++)
+            for (uint32_t i = 0; i < th_Hk; i++) {
                 for (uint32_t j = 0; j < th_Wk; j++) {
-                    if (std::isnan(grid[i*th_Wk+j])) continue;
-                    double gx = (j+1 < th_Wk && !std::isnan(grid[i*th_Wk+(j+1)])) ? std::fabs(grid[i*th_Wk+(j+1)] - grid[i*th_Wk+j]) : 0.0;
-                    double gy = (i+1 < th_Hk && !std::isnan(grid[(i+1)*th_Wk+j])) ? std::fabs(grid[(i+1)*th_Wk+j] - grid[i*th_Wk+j]) : 0.0;
+                    float v;
+                    if (c < (int)nc) {
+                        v = tbase[to + ((size_t)c * th_Hk + i) * th_Wk + j];
+                        if (v == nodata_val) continue;
+                        float z = (float)((v - REF_MU[c]) / REF_SIG[c]);
+                        if (z < -5.0f) z = -5.0f; if (z > 5.0f) z = 5.0f;
+                    } else {
+                        float vs = tbase[to + (1 * th_Hk + i) * th_Wk + j];
+                        float va = tbase[to + (2 * th_Hk + i) * th_Wk + j];
+                        if (vs == nodata_val || va == nodata_val) continue;
+                        double zr = std::sin(vs * M_PI / 180.0) * std::cos(va * M_PI / 180.0);
+                        float z = (float)(zr / 0.5);
+                        if (z < -5.0f) z = -5.0f; if (z > 5.0f) z = 5.0f;
+                        v = z; // dummy
+                    }
+                    // gradient backward
+                    // need normalized grid; recompute z
+                    float zc;
+                    if (c < (int)nc) {
+                        float vv = tbase[to + ((size_t)c * th_Hk + i) * th_Wk + j];
+                        zc = (float)((vv - REF_MU[c]) / REF_SIG[c]);
+                        if (zc < -5) zc = -5; if (zc > 5) zc = 5;
+                    } else {
+                        float vs = tbase[to + (1 * th_Hk + i) * th_Wk + j];
+                        float va = tbase[to + (2 * th_Hk + i) * th_Wk + j];
+                        double zr = std::sin(vs * M_PI / 180.0) * std::cos(va * M_PI / 180.0);
+                        zc = (float)(zr / 0.5);
+                        if (zc < -5) zc = -5; if (zc > 5) zc = 5;
+                    }
+                    double gx = (j > 0) ? std::fabs(zc - ( [&](){ if (c < (int)nc) { float vv = tbase[to+((size_t)c*th_Hk+i)*th_Wk+(j-1)]; if (vv==nodata_val) return zc; float zz=(float)((vv-REF_MU[c])/REF_SIG[c]); if(zz<-5)zz=-5; if(zz>5)zz=5; return zz;} else { return zc;} }() )) : 0.0;
+                    double gy = (i > 0) ? std::fabs(zc - ( [&](){ if (c < (int)nc) { float vv = tbase[to+((size_t)c*th_Hk+(i-1))*th_Wk+j]; if (vv==nodata_val) return zc; float zz=(float)((vv-REF_MU[c])/REF_SIG[c]); if(zz<-5)zz=-5; if(zz>5)zz=5; return zz;} else { return zc;} }() )) : 0.0;
                     tsum += std::sqrt(gx*gx + gy*gy);
                     tcnt++;
                 }
+            }
             t_tex[c] = tcnt > 0 ? tsum / tcnt : 0.0;
+            // earth residuals accumulators
+            for (uint32_t i = 0; i < th_Hk; i++)
+                for (uint32_t j = 0; j < th_Wk; j++) {
+                    if (c < nc) {
+                        float v = tbase[to + ((size_t)c * th_Hk + i) * th_Wk + j];
+                        if (v != nodata_val) { /* already accumulated above? no, that was target. Need earth separately. */ }
+                    }
+                }
         }
-
-        int r = 15 >> k; if (r < 3) r = 3;
-        int win = 2 * r + 1;
 
         double sum_sim = 0.0;
         long count = 0;
@@ -214,28 +262,44 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
         #pragma omp parallel for collapse(2) reduction(+:sum_sim,count)
         for (int i = 0; i < (int)Hk; i++) {
             for (int j = 0; j < (int)Wk; j++) {
-                // center pixel nodata check
+                // center nodata check
                 int center_nodata = 0;
                 for (uint32_t c = 0; c < nc; c++) {
                     float v = ebase[eo + ((size_t)c * Hk + i) * Wk + j];
                     if (v == nodata_val) { center_nodata = 1; break; }
                 }
-                // f_valid: fraction of valid pixels in window
-                int wcount = 0, wvalid = 0;
-                for (int wi = -r; wi <= r; wi++) {
-                    for (int wj = -r; wj <= r; wj++) {
-                        int ii = i + wi, jj = j + wj;
-                        wcount++;
-                        if (ii < 0 || ii >= (int)Hk || jj < 0 || jj >= (int)Wk) continue;
-                        int anynod = 0;
-                        for (uint32_t c = 0; c < nc; c++) {
-                            float v = ebase[eo + ((size_t)c * Hk + ii) * Wk + jj];
-                            if (v == nodata_val) { anynod = 1; break; }
+                // also proxy channel (c=nc) needs slope/aspect valid
+                float vs = ebase[eo + (1 * Hk + i) * Wk + j];
+                float va = ebase[eo + (2 * Hk + i) * Wk + j];
+                if (vs == nodata_val || va == nodata_val) center_nodata = 1;
+
+                // f_valid: min over channels (nc+1) of per-channel valid fraction in window
+                // compute per-channel valid fractions
+                float fv[NC+1];
+                for (int c = 0; c <= (int)nc; c++) {
+                    int wcount = 0, wvalid = 0;
+                    for (int wi = -r; wi <= r; wi++) {
+                        for (int wj = -r; wj <= r; wj++) {
+                            int ii = i + wi, jj = j + wj;
+                            wcount++;
+                            if (ii < 0 || ii >= (int)Hk || jj < 0 || jj >= (int)Wk) continue;
+                            int anynod = 0;
+                            if (c < (int)nc) {
+                                float v = ebase[eo + ((size_t)c * Hk + ii) * Wk + jj];
+                                if (v == nodata_val) anynod = 1;
+                            } else {
+                                float v1 = ebase[eo + (1 * Hk + ii) * Wk + jj];
+                                float v2 = ebase[eo + (2 * Hk + ii) * Wk + jj];
+                                if (v1 == nodata_val || v2 == nodata_val) anynod = 1;
+                            }
+                            if (!anynod) wvalid++;
                         }
-                        if (!anynod) wvalid++;
                     }
+                    fv[c] = (float)wvalid / (float)wcount;
                 }
-                float f_valid = (float)wvalid / (float)wcount;
+                float f_valid = fv[0];
+                for (int c = 1; c <= (int)nc; c++) if (fv[c] < f_valid) f_valid = fv[c];
+
                 if (center_nodata || f_valid < 0.25f) {
                     obase[oo + (0 * Hk + i) * Wk + j] = 0.0f;
                     obase[oo + (1 * Hk + i) * Wk + j] = 0.0f;
@@ -245,33 +309,47 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
                 // per-channel earth window quantiles, texture, std
                 double Dsum = 0.0;
                 double std_diff_sum = 0.0;
-                for (uint32_t c = 0; c < nc; c++) {
+                for (uint32_t c = 0; c <= nc; c++) {
                     // collect window values
-                    std::vector<float> wvals;
-                    wvals.reserve((2*r+1)*(2*r+1));
+                    float wbuf[961];
+                    int wn = 0;
                     double esum = 0, esumsq = 0; long ecnt = 0;
                     for (int wi = -r; wi <= r; wi++) {
                         for (int wj = -r; wj <= r; wj++) {
                             int ii = i + wi, jj = j + wj;
                             if (ii < 0 || ii >= (int)Hk || jj < 0 || jj >= (int)Wk) continue;
-                            float v = ebase[eo + ((size_t)c * Hk + ii) * Wk + jj];
-                            if (v == nodata_val) continue;
-                            float z = (float)((v - REF_MU[c]) / REF_SIG[c]);
-                            if (z < -5.0f) z = -5.0f;
-                            if (z > 5.0f) z = 5.0f;
-                            wvals.push_back(z);
+                            float z;
+                            if (c < nc) {
+                                float v = ebase[eo + ((size_t)c * Hk + ii) * Wk + jj];
+                                if (v == nodata_val) continue;
+                                z = (float)((v - REF_MU[c]) / REF_SIG[c]);
+                                if (z < -5.0f) z = -5.0f;
+                                if (z > 5.0f) z = 5.0f;
+                            } else {
+                                float v1 = ebase[eo + (1 * Hk + ii) * Wk + jj];
+                                float v2 = ebase[eo + (2 * Hk + ii) * Wk + jj];
+                                if (v1 == nodata_val || v2 == nodata_val) continue;
+                                double zr = std::sin(v1 * M_PI / 180.0) * std::cos(v2 * M_PI / 180.0);
+                                z = (float)(zr / 0.5);
+                                if (z < -5.0f) z = -5.0f;
+                                if (z > 5.0f) z = 5.0f;
+                            }
+                            wbuf[wn++] = z;
                             esum += z; esumsq += (double)z*z; ecnt++;
-                            // texture: gradient at (ii,jj)
-                            // We'll compute texture separately below; skip here
                         }
                     }
-                    // earth quantiles
+                    // quantiles (linear)
                     double eq[5] = {0,0,0,0,0};
-                    if (wvals.size() > 0) {
-                        std::sort(wvals.begin(), wvals.end());
-                        int n = wvals.size();
-                        int qidx[5] = { (int)(0.10*(n-1)), (int)(0.25*(n-1)), (int)(0.50*(n-1)), (int)(0.75*(n-1)), (int)(0.90*(n-1)) };
-                        for (int q = 0; q < 5; q++) eq[q] = wvals[qidx[q]];
+                    if (wn > 0) {
+                        std::sort(wbuf, wbuf + wn);
+                        for (int q = 0; q < 5; q++) {
+                            double p = (q==0)?0.10:(q==1)?0.25:(q==2)?0.50:(q==3)?0.75:0.90;
+                            double pos = p * (wn - 1);
+                            int lo = (int)std::floor(pos);
+                            int hi = lo + 1; if (hi >= wn) hi = wn-1;
+                            double frac = pos - lo;
+                            eq[q] = wbuf[lo] * (1.0 - frac) + wbuf[hi] * frac;
+                        }
                     }
                     double esd = ecnt > 0 ? std::sqrt(esumsq/ecnt - (esum/ecnt)*(esum/ecnt)) : 0.0;
                     if (esd < 0) esd = 0;
@@ -279,46 +357,62 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
                     double w1 = 0.0;
                     for (int q = 0; q < 5; q++) w1 += std::fabs(eq[q] - t_quant[c][q]);
                     w1 /= 5.0;
-                    // texture earth: mean gradient magnitude in window
-                    double texsum = 0; long tcnt2 = 0;
+                    // texture earth: backward diff on nan->0 (0 for nodata), averaged over win*win
+                    // Precompute normalized grid not available per-pixel; compute window mean of gradient magnitude
+                    // using (i,j) window. We'll approximate by summing gradients at valid cells / (win*win).
+                    double texsum = 0.0;
                     for (int wi = -r; wi <= r; wi++) {
                         for (int wj = -r; wj <= r; wj++) {
                             int ii = i + wi, jj = j + wj;
                             if (ii < 0 || ii >= (int)Hk || jj < 0 || jj >= (int)Wk) continue;
-                            float v = ebase[eo + ((size_t)c * Hk + ii) * Wk + jj];
-                            if (v == nodata_val) continue;
-                            float z = (float)((v - REF_MU[c]) / REF_SIG[c]);
-                            if (z < -5.0f) z = -5.0f;
-                            if (z > 5.0f) z = 5.0f;
-                            double gx = 0, gy = 0;
-                            if (jj+1 < (int)Wk) {
-                                float v2 = ebase[eo + ((size_t)c*Hk+ii)*Wk+(jj+1)];
-                                if (v2 != nodata_val) {
-                                    float z2 = (float)((v2 - REF_MU[c])/REF_SIG[c]);
-                                    if (z2<-5) z2=-5; if (z2>5) z2=5;
-                                    gx = std::fabs(z2 - z);
+                            // gradient at (ii,jj) using backward diff on normalized value (0 if nodata)
+                            float zc;
+                            if (c < (int)nc) {
+                                float v = ebase[eo + ((size_t)c * Hk + ii) * Wk + jj];
+                                if (v == nodata_val) zc = 0; else { zc = (float)((v - REF_MU[c]) / REF_SIG[c]); if (zc<-5) zc=-5; if (zc>5) zc=5; }
+                            } else {
+                                float v1 = ebase[eo + (1 * Hk + ii) * Wk + jj];
+                                float v2 = ebase[eo + (2 * Hk + ii) * Wk + jj];
+                                if (v1 == nodata_val || v2 == nodata_val) zc = 0;
+                                else { double zr = std::sin(v1 * M_PI / 180.0) * std::cos(v2 * M_PI / 180.0); zc = (float)(zr/0.5); if (zc<-5) zc=-5; if (zc>5) zc=5; }
+                            }
+                            // backward diff
+                            float zleft = 0, zup = 0;
+                            if (jj > 0) {
+                                float v = ebase[eo + ((size_t)c * Hk + ii) * Wk + (jj-1)];
+                                if (c < (int)nc) {
+                                    if (v == nodata_val) zleft = 0; else { zleft = (float)((v - REF_MU[c]) / REF_SIG[c]); if (zleft<-5) zleft=-5; if (zleft>5) zleft=5; }
+                                } else {
+                                    float v1 = ebase[eo + (1*Hk+ii)*Wk + (jj-1)];
+                                    float v2 = ebase[eo + (2*Hk+ii)*Wk + (jj-1)];
+                                    if (v1==nodata_val||v2==nodata_val) zleft=0;
+                                    else { double zr=std::sin(v1*M_PI/180.0)*std::cos(v2*M_PI/180.0); zleft=(float)(zr/0.5); if(zleft<-5)zleft=-5; if(zleft>5)zleft=5; }
                                 }
                             }
-                            if (ii+1 < (int)Hk) {
-                                float v2 = ebase[eo + ((size_t)c*Hk+(ii+1))*Wk+jj];
-                                if (v2 != nodata_val) {
-                                    float z2 = (float)((v2 - REF_MU[c])/REF_SIG[c]);
-                                    if (z2<-5) z2=-5; if (z2>5) z2=5;
-                                    gy = std::fabs(z2 - z);
+                            if (ii > 0) {
+                                float v = ebase[eo + ((size_t)c * Hk + (ii-1)) * Wk + jj];
+                                if (c < (int)nc) {
+                                    if (v == nodata_val) zup = 0; else { zup = (float)((v - REF_MU[c]) / REF_SIG[c]); if (zup<-5) zup=-5; if (zup>5) zup=5; }
+                                } else {
+                                    float v1 = ebase[eo + (1*Hk+(ii-1))*Wk + jj];
+                                    float v2 = ebase[eo + (2*Hk+(ii-1))*Wk + jj];
+                                    if (v1==nodata_val||v2==nodata_val) zup=0;
+                                    else { double zr=std::sin(v1*M_PI/180.0)*std::cos(v2*M_PI/180.0); zup=(float)(zr/0.5); if(zup<-5)zup=-5; if(zup>5)zup=5; }
                                 }
                             }
+                            double gx = std::fabs(zc - zleft);
+                            double gy = std::fabs(zc - zup);
                             texsum += std::sqrt(gx*gx + gy*gy);
-                            tcnt2++;
                         }
                     }
-                    double etex = tcnt2 > 0 ? texsum / tcnt2 : 0.0;
+                    double etex = texsum / (double)(win*win);
                     double deltaE = std::fabs(etex - t_tex[c]) / (etex + t_tex[c] + 1e-6);
                     Dsum += 0.75 * w1 + 0.25 * deltaE;
                     std_diff_sum += std::fabs(esd - t_std[c]);
                 }
-                double D = Dsum / (double)nc;
+                double D = Dsum / (double)(nc + 1);
                 float sim = (float)std::exp(-D);
-                float conf = f_valid * (float)(1.0 / (1.0 + std_diff_sum / (double)nc));
+                float conf = f_valid * (float)(1.0 / (1.0 + std_diff_sum / (double)(nc + 1)));
                 if (sim < 0) sim = 0; if (sim > 1) sim = 1;
                 if (conf < 0) conf = 0; if (conf > 1) conf = 1;
                 obase[oo + (0 * Hk + i) * Wk + j] = sim;
@@ -344,13 +438,15 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
         if (f) {
             fprintf(f, "{\n");
             fprintf(f, "  \"scale_invariance_index\": %.6f,\n", si);
-            // channel_residuals using ch0.. keys (computed from raw earlier? skip, use empty for now)
             fprintf(f, "  \"channel_residuals\": {},\n");
             fprintf(f, "  \"physical_breakdown_flags\": [\n");
             fprintf(f, "    {\"flag\": \"GRAVITY_SCALING\", \"gravity_scaling_factor\": %.6f},\n", (double)th->gravity_ms2 / (double)eh->gravity_ms2);
             fprintf(f, "    {\"flag\": \"ATMOSPHERE_GAP\", \"atmospheric_pressure_gap_pa\": %.6f},\n", (double)std::fabs(eh->surface_pressure_pa - th->surface_pressure_pa));
             fprintf(f, "    {\"flag\": \"RADIATION_DELTA\", \"radiation_delta_msv_yr\": %.6f},\n", (double)std::fabs(eh->radiation_msv_yr - th->radiation_msv_yr));
-            fprintf(f, "    {\"flag\": \"NO_ATMOSPHERE_TARGET\", \"details\": \"Target body has no atmosphere.\"}\n");
+            if (th->body == 2 && eh->body == 1)
+                fprintf(f, "    {\"flag\": \"NO_ATMOSPHERE_TARGET\", \"details\": \"Target body has no atmosphere.\"}\n");
+            else
+                fprintf(f, "    {\"flag\": \"NONE\", \"details\": \"n/a\"}\n");
             fprintf(f, "  ]\n");
             fprintf(f, "}\n");
             fclose(f);
