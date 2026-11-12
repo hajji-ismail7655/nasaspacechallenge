@@ -70,10 +70,16 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
 
     if (est.st_size < 128 || tst.st_size < 128) {
         munmap(emap, est.st_size); munmap(tmap, tst.st_size); return -13; }
+    size_t exp_e = 128, exp_t = 128;
+    // compute expected from header (need to read header first but check size >= 128 first)
+    if (est.st_size < 128 || tst.st_size < 128) { munmap(emap, est.st_size); munmap(tmap, tst.st_size); return -13; }
     TileBinaryHeader* eh = (TileBinaryHeader*)emap;
     TileBinaryHeader* th = (TileBinaryHeader*)tmap;
     if (eh->magic != PTIL_MAGIC || th->magic != PTIL_MAGIC) { munmap(emap, est.st_size); munmap(tmap, tst.st_size); return -7; }
     if (eh->version != CONTRACT_VERSION || th->version != CONTRACT_VERSION) { munmap(emap, est.st_size); munmap(tmap, tst.st_size); return -8; }
+    for (uint32_t k = 0; k < eh->num_octaves; k++) exp_e += (size_t)eh->num_channels * (eh->base_height >> k) * (eh->base_width >> k) * 4;
+    for (uint32_t k = 0; k < th->num_octaves; k++) exp_t += (size_t)th->num_channels * (th->base_height >> k) * (th->base_width >> k) * 4;
+    if ((size_t)est.st_size < exp_e || (size_t)tst.st_size < exp_t) { munmap(emap, est.st_size); munmap(tmap, tst.st_size); return -12; }
 
     uint32_t num_octaves = eh->num_octaves;
     if (th->num_octaves < num_octaves) num_octaves = th->num_octaves;
