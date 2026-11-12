@@ -46,7 +46,10 @@ def scale_invariance_filter(composite_octaves):
     W = min(s[1] for s in shapes)
     stack = np.stack([composite_octaves[k][:H, :W] for k in range(n_oct)], axis=0)  # (n_oct,H,W)
     std = np.std(stack, axis=0)
+    mean = np.mean(stack, axis=0)
     I_scale = 1.0 - std
+    # invalidate all-nodata (all-zero) regions
+    I_scale = np.where((std == 0) & (mean == 0), 0.0, I_scale)
     I_scale = np.clip(I_scale, 0.0, 1.0)
     out = {}
     for k in range(n_oct):
