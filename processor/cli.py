@@ -14,7 +14,11 @@ import numpy as np
 
 def process_one(src_npy, src_meta, body, domain, lat0, lon0, out_base, channels):
     src = np.load(src_npy)
-    meta = json.load(open(src_meta)) if os.path.exists(src_meta) else {}
+    if isinstance(src, np.ndarray) and src.ndim == 3:
+        src = src[0]
+    meta = {}
+    if src_meta and os.path.exists(src_meta):
+        meta = json.load(open(src_meta))
     lats = np.array(meta.get("lats", np.linspace(-5, 5, src.shape[0])))
     lons = np.array(meta.get("lons", np.linspace(-5, 5, src.shape[1])))
     base_res = float(meta.get("base_resolution_m", 30.0))
