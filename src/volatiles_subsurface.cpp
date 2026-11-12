@@ -66,6 +66,16 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
         munmap(emap, est.st_size); munmap(tmap, tst.st_size); return -7; }
     if (eh->version != CONTRACT_VERSION || th->version != CONTRACT_VERSION) {
         munmap(emap, est.st_size); munmap(tmap, tst.st_size); return -8; }
+    // bounds check against header dimensions
+    size_t exp_e = 128, exp_t = 128;
+    for (uint32_t k = 0; k < eh->num_octaves; k++) {
+        exp_e += (size_t)eh->num_channels * (eh->base_height >> k) * (eh->base_width >> k) * 4;
+    }
+    for (uint32_t k = 0; k < th->num_octaves; k++) {
+        exp_t += (size_t)th->num_channels * (th->base_height >> k) * (th->base_width >> k) * 4;
+    }
+    if ((size_t)est.st_size < exp_e || (size_t)tst.st_size < exp_t) {
+        munmap(emap, est.st_size); munmap(tmap, tst.st_size); return -12; }
 
     uint32_t num_octaves = eh->num_octaves;
     if (th->num_octaves < num_octaves) num_octaves = th->num_octaves;
@@ -74,7 +84,7 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
     uint32_t nc_e = eh->num_channels;
     uint32_t nc_t = th->num_channels;
     uint32_t nc = nc_e < nc_t ? nc_e : nc_t;
-    float nodata = eh->nodata_value;
+    float nodata_val = eh->nodata_value;
 
     // compute output size
     size_t out_size = 128;
@@ -131,18 +141,18 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
         for (int i = 0; i < (int)Hk; i++) {
             for (int j = 0; j < (int)Wk; j++) {
                 double dot = 0.0, ne = 0.0, nt = 0.0;
-                int nodata = 0;
+                int has_nodata = 0;
                 // first pass
                 for (uint32_t c = 0; c < nc; c++) {
                     float ev = ebase[eo + ((size_t)c * Hk + i) * Wk + j];
                     float tv = tbase[to + ((size_t)c * Hk + i) * Wk + j];
-                    if (ev == nodata || tv == nodata) { nodata = 1; break; }
+                    if (ev == nodata_val || tv == nodata_val) { has_nodata = 1; break; }
                     dot += (double)ev * (double)tv;
                     ne += (double)ev * (double)ev;
                     nt += (double)tv * (double)tv;
                 }
                 float sim = 0.0f, conf = 0.0f;
-                if (!nodata && ne > 0.0 && nt > 0.0) {
+                if (!has_nodata && ne > 1e-24 && nt > 1e-24) {
                     double cos = dot / (std::sqrt(ne) * std::sqrt(nt));
                     sim = (float)((cos + 1.0) / 2.0);
                     if (sim < 0.0f) sim = 0.0f;
@@ -182,13 +192,64 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
     if (si < 0.0) si = 0.0;
     if (si > 1.0) si = 1.0;
 
-    // write breakdown json (minimal but valid)
+    // compute channel residuals
+    char cres[8192];
+    cres[0] = '{'; cres[1] = '}'; cres[2] = '\0';
+    // build JSON manually
+    char buf[16384];
+    int bpos = 0;
+    bpos += sprintf(buf + bpos, "{");
+    int first = 1;
+    for (uint32_t c = 0; c < nc; c++) {
+        double esum=0, tsum=0, evar=0, tvar=0; long ec=0, tc=0;
+        // accumulate across octaves
+        size_t eo2=0, to2=0;
+        for (uint32_t kk=0; kk<num_octaves; kk++) {
+            uint32_t Hkk = base_height >> kk;
+            uint32_t Wkk = base_width >> kk;
+            for (uint32_t i=0;i<Hkk;i++) for (uint32_t j=0;j<Wkk;j++) {
+                float ev = ebase[eo2 + ((size_t)c*Hkk + i)*Wkk + j];
+                float tv = tbase[to2 + ((size_t)c*Hkk + i)*Wkk + j];
+                if (ev != nodata_val) { esum += ev; ec++; }
+                if (tv != nodata_val) { tsum += tv; tc++; }
+            }
+            eo2 += (size_t)nc_e * Hkk * Wkk;
+            to2 += (size_t)nc_t * Hkk * Wkk;
+        }
+        double emean = ec>0 ? esum/ec : 0.0;
+        double tmean = tc>0 ? tsum/tc : 0.0;
+        // var
+        eo2=0; to2=0;
+        for (uint32_t kk=0; kk<num_octaves; kk++) {
+            uint32_t Hkk = base_height >> kk;
+            uint32_t Wkk = base_width >> kk;
+            for (uint32_t i=0;i<Hkk;i++) for (uint32_t j=0;j<Wkk;j++) {
+                float ev = ebase[eo2 + ((size_t)c*Hkk + i)*Wkk + j];
+                float tv = tbase[to2 + ((size_t)c*Hkk + i)*Wkk + j];
+                if (ev != nodata_val) { double d=ev-emean; evar += d*d; }
+                if (tv != nodata_val) { double d=tv-tmean; tvar += d*d; }
+            }
+            eo2 += (size_t)nc_e * Hkk * Wkk;
+            to2 += (size_t)nc_t * Hkk * Wkk;
+        }
+        double epooled = ec>0 ? evar/ec : 0.0;
+        double tpooled = tc>0 ? tvar/tc : 0.0;
+        double pooled = sqrt(epooled + tpooled + 1e-12);
+        double zdiv = (emean - tmean) / pooled;
+        if (!first) bpos += sprintf(buf + bpos, ",");
+        first = 0;
+        bpos += sprintf(buf + bpos, " \"ch%d\": {\"earth_mean\": %.6f, \"target_mean\": %.6f, \"z_divergence\": %.6f }",
+                        c, emean, tmean, zdiv);
+    }
+    bpos += sprintf(buf + bpos, "}");
+
+    // write breakdown json
     if (out_breakdown_json_path) {
         FILE* f = fopen(out_breakdown_json_path, "w");
         if (f) {
             fprintf(f, "{\n");
             fprintf(f, "  \"scale_invariance_index\": %.6f,\n", si);
-            fprintf(f, "  \"channel_residuals\": {},\n");
+            fprintf(f, "  \"channel_residuals\": %s,\n", buf);
             fprintf(f, "  \"physical_breakdown_flags\": [\n");
             fprintf(f, "    {\"flag\": \"GRAVITY_SCALING\", \"gravity_scaling_factor\": %.6f},\n", (double)th->gravity_ms2 / (double)eh->gravity_ms2);
             fprintf(f, "    {\"flag\": \"ATMOSPHERE_GAP\", \"atmospheric_pressure_gap_pa\": %.6f},\n", (double)std::fabs(eh->surface_pressure_pa - th->surface_pressure_pa));
