@@ -243,6 +243,23 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
     }
     bpos += snprintf(buf + bpos, sizeof(buf)-bpos, "}");
 
+    // biosphere overprint check (channel 7 = ndvi)
+    int bio_over = 0;
+    if (nc > 7) {
+        double nsum=0; long ncnt=0;
+        size_t eo2=0;
+        for (uint32_t kk=0; kk<num_octaves; kk++) {
+            uint32_t Hkk = base_height >> kk;
+            uint32_t Wkk = base_width >> kk;
+            for (uint32_t i=0;i<Hkk;i++) for (uint32_t j=0;j<Wkk;j++) {
+                float ev = ebase[eo2 + (7*Hkk + i)*Wkk + j];
+                if (ev != nodata_val) { nsum += ev; ncnt++; }
+            }
+            eo2 += (size_t)nc_e * Hkk * Wkk;
+        }
+        double nmean = ncnt>0 ? nsum/ncnt : 0.0;
+        bio_over = (nmean > 0.15) ? 1 : 0;
+    }
     // write breakdown json
     if (out_breakdown_json_path) {
         FILE* f = fopen(out_breakdown_json_path, "w");
@@ -254,7 +271,7 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
             fprintf(f, "    {\"flag\": \"GRAVITY_SCALING\", \"gravity_scaling_factor\": %.6f},\n", (double)th->gravity_ms2 / (double)eh->gravity_ms2);
             fprintf(f, "    {\"flag\": \"ATMOSPHERE_GAP\", \"atmospheric_pressure_gap_pa\": %.6f},\n", (double)std::fabs(eh->surface_pressure_pa - th->surface_pressure_pa));
             fprintf(f, "    {\"flag\": \"RADIATION_DELTA\", \"radiation_delta_msv_yr\": %.6f},\n", (double)std::fabs(eh->radiation_msv_yr - th->radiation_msv_yr));
-            fprintf(f, "    {\"flag\": \"BIOSPHERE_OVERPRINT\", \"biosphere_overprint\": true, \"details\": \"NDVI mean > 0.15 terrestrial biosphere overprint.\"}\n");
+            fprintf(f, "    {\"flag\": \"BIOSPHERE_OVERPRINT\", \"biosphere_overprint\": %s, \"details\": \"NDVI mean %s 0.15 terrestrial biosphere overprint.\"}\n", bio_over ? "true" : "false", bio_over ? ">" : "<=");
             fprintf(f, "  ]\n");
             fprintf(f, "}\n");
             fclose(f);
