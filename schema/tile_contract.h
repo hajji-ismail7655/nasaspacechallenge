@@ -51,4 +51,3 @@ typedef struct __attribute__((aligned(64))) {
  */
 
 #endif /* TILE_CONTRACT_H */
-EOF
