@@ -75,16 +75,9 @@ def reproject_to_laea(source: np.ndarray,
     """
     R = BODY_RADIUS[body.upper()]
     H, W = out_shape
-    # build target pixel centers in meters
-    xs = (np.arange(W) - W / 2.0 + 0.5) * resolution_m
-    ys = (np.arange(H) - H / 2.0 + 0.5) * resolution_m
-    # note: y increases upward; flip for image row order
-    X, Y = np.meshgrid(xs, -ys[::-1] if False else ys)
-    # We'll treat row 0 as north (positive y). Use standard: row increases downward => y decreases.
-    Y = (H / 2.0 - 0.5 - np.arange(H))[:, None] * resolution_m
-    X = (np.arange(W) - W / 2.0 + 0.5)[None, :] * resolution_m
-    X = np.broadcast_to(X, (H, W)).copy()
-    Y = np.broadcast_to(Y, (H, W)).copy()
+    # build target pixel centers in meters (row 0 = north, y decreases downward)
+    X = np.broadcast_to((np.arange(W) - W / 2.0 + 0.5)[None, :], (H, W)).copy() * resolution_m
+    Y = np.broadcast_to((H / 2.0 - 0.5 - np.arange(H))[:, None], (H, W)).copy() * resolution_m
 
     tlat, tlon = laea_inverse(X.ravel(), Y.ravel(), lat0, lon0, R)
     tlat = tlat.reshape(H, W)
@@ -97,13 +90,36 @@ def reproject_to_laea(source: np.ndarray,
     if src_lats[0] > src_lats[-1]:
         src_lats = src_lats[::-1]
         source = source[::-1, :]
+    # wrap target longitudes into source longitude range
+    if src_lons.size > 1:
+        lo, hi = float(src_lons.min()), float(src_lons.max())
+        tlon_w = tlon.copy()
+        for _ in range(5):
+            mask = tlon_w < lo
+            if not mask.any():
+                break
+            tlon_w[mask] += 360.0
+        for _ in range(5):
+            mask = tlon_w > hi
+            if not mask.any():
+                break
+            tlon_w[mask] -= 360.0
+
     interp = RegularGridInterpolator(
         (src_lats, src_lons), source, method=method,
         bounds_error=False, fill_value=nodata
     )
-    pts = np.stack([tlat.ravel(), tlon.ravel()], axis=-1)
+    pts = np.stack([tlat.ravel(), tlon_w.ravel()], axis=-1)
     out = interp(pts).reshape(H, W).astype(np.float32)
-    # wrap longitudes into src range if needed
+
+    valid = (source != nodata).astype(np.float32)
+    vinterp = RegularGridInterpolator(
+        (src_lats, src_lons), valid, method="nearest",
+        bounds_error=False, fill_value=0.0
+    )
+    vpts = np.stack([tlat.ravel(), tlon_w.ravel()], axis=-1)
+    vout = vinterp(vpts).reshape(H, W)
+    out = np.where(vout > 0.5, out, nodata).astype(np.float32)
     return out
 
 
