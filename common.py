@@ -4,7 +4,7 @@ import os
 import struct
 import numpy as np
 
-HEADER_STRUCT = struct.Struct("<IIIIIIII ddd ffff 40s 16x")
+HEADER_STRUCT = struct.Struct("<IIIIIIII ddd ffff 56s")
 assert HEADER_STRUCT.size == 128
 MAGIC_PTIL = 0x4C495450
 MAGIC_HMAP = 0x50414D48
@@ -55,14 +55,15 @@ def read_ptile(path):
 
 def write_hmap(path, num_octaves, base_height, base_width, num_channels=2,
                octaves_data=None, body=1, domain=1, center_lat=0.0,
-               center_lon=0.0, base_res=30.0, nodata=-9999.0):
+               center_lon=0.0, base_res=30.0, nodata=-9999.0,
+               gravity=9.80665, pressure=101325.0, radiation=0.0):
     if octaves_data is None:
         octaves_data = []
     header = HEADER_STRUCT.pack(
         MAGIC_HMAP, 1, body, domain, num_octaves, num_channels,
         base_height, base_width, float(base_res), float(center_lat),
         float(center_lon), float(nodata),
-        9.80665, 101325.0, 0.0, b"\x00" * 40,
+        float(gravity), float(pressure), float(radiation), b"\x00" * 56,
     )
     with open(path, "wb") as f:
         f.write(header)
