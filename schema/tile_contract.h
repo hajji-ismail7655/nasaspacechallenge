@@ -38,7 +38,7 @@ typedef struct __attribute__((aligned(64))) {
     float    gravity_ms2;        /* 9.80665 (Earth), 1.622 (Moon), 3.72076 (Mars) */
     float    surface_pressure_pa;/* 101325.0 (Earth), 3e-10 (Moon), 610.0 (Mars) */
     float    radiation_msv_yr;   /* Baseline surface ionizing dose rate */
-    uint8_t  reserved[40];       /* Zero-padded to 128 bytes */
+    uint8_t  reserved[56];       /* Zero-padded to 128 bytes (explicit) */
 } TileBinaryHeader;
 
 /*
