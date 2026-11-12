@@ -120,7 +120,7 @@ def heatmap(site_id: str, target_id: str, domain: str, octave: str):
 def breakdown(site_id: str, path: str = Query(default="")):
     if path:
         rp = os.path.realpath(path)
-        if not rp.startswith(os.path.realpath(DATA)):
+        if os.path.commonpath([rp, os.path.realpath(DATA)]) != os.path.realpath(DATA):
             return JSONResponse({"site_id": site_id, "error": "path outside data_lake"}, status_code=403)
         if os.path.exists(rp):
             try:

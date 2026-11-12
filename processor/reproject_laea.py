@@ -51,7 +51,7 @@ def laea_inverse(x: np.ndarray, y: np.ndarray,
     cos_c = np.cos(c)
     # handle rho==0
     with np.errstate(divide="ignore", invalid="ignore"):
-        lat = np.arcsin(cos_c * np.sin(lat0) + (y * sin_c * np.cos(lat0)) / np.where(rho == 0, 1.0, rho))
+        lat = np.arcsin(np.clip(cos_c * np.sin(lat0) + (y * sin_c * np.cos(lat0)) / np.where(rho == 0, 1.0, rho), -1.0, 1.0))
     lon = lon0 + np.arctan2(x * sin_c, rho * np.cos(lat0) * cos_c - y * np.sin(lat0) * sin_c)
     lon = np.where(rho == 0, lon0, lon)
     return np.rad2deg(lat), np.rad2deg(lon)

@@ -58,8 +58,8 @@ def write_ptile(path: str, body: str, domain: str, num_octaves: int,
         f.write(header)
         for k in range(num_octaves):
             arr = octaves_data[k] if k < len(octaves_data) else None
-            Hk = base_height >> k
-            Wk = base_width >> k
+            Hk = max(1, base_height >> k)
+            Wk = max(1, base_width >> k)
             if arr is None:
                 arr = np.full((num_channels, Hk, Wk), nodata_value, dtype=np.float32)
             arr = np.ascontiguousarray(arr, dtype=np.float32).reshape(num_channels, Hk, Wk)

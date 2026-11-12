@@ -28,14 +28,17 @@ def composite_similarity(module_scores, weights=None):
         for m, octs in module_scores.items():
             arr = octs[k]
             if arr.ndim == 3:
-                arr = arr[0]
-            arr = arr[:H, :W].astype(np.float64)
+                sim_arr = arr[0]
+                conf_arr = arr[1] if arr.shape[0] > 1 else np.ones_like(arr[0])
+            else:
+                sim_arr = arr
+                conf_arr = np.ones_like(arr)
+            sim_arr = sim_arr[:H, :W].astype(np.float64)
+            conf_arr = conf_arr[:H, :W]
             w = weights.get(m, 1.0)
-            # renormalize over valid (non-zero) modules
-            valid = (arr != 0.0)
-            comp = np.where(valid, comp + w * arr, comp)
+            valid = conf_arr > 0
+            comp = np.where(valid, comp + w * sim_arr, comp)
             wsum = np.where(valid, wsum + w, wsum)
-        # avoid div by zero
         comp = np.where(wsum > 0, comp / np.where(wsum > 0, wsum, 1.0), 0.0)
         result[k] = comp.astype(np.float32)
     return result
