@@ -30,7 +30,7 @@ struct alignas(64) TileBinaryHeader {
     float gravity_ms2;
     float surface_pressure_pa;
     float radiation_msv_yr;
-    unsigned char reserved[40];
+    unsigned char reserved[56];
 };
 // pad to 128 via alignment not guaranteed; we rely on file layout 128 bytes.
 // Ensure struct size is 128 by static assert.
