@@ -9,7 +9,7 @@ from typing import List, Dict, Any
 
 import numpy as np
 
-HEADER_STRUCT = struct.Struct("<IIIIIIII ddd ffff 40s 16x")
+HEADER_STRUCT = struct.Struct("<IIIIIIII ddd ffff 56s")
 assert HEADER_STRUCT.size == 128, HEADER_STRUCT.size
 
 MAGIC_PTIL = 0x4C495450
