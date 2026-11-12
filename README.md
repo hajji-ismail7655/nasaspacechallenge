@@ -1,16 +1,17 @@
-# nasaspacechallenge
+# Cross-Planetary Terrestrial Analog Discovery Engine
 
-don't hesitate to open your own issues for new proc. mods. or seperate issues. 
-document everything you do properly, and make your PR's detailed since we want to have a good idea of what u did without pulling and testing locally
+Systematically discover, score, and characterize previously unrecognized terrestrial analogs
+for Artemis lunar base sites and Mars exploration targets using multi-scale cross-planetary
+open datasets, dual-tier Python/C++ processing modules, and explicit physical analogy-breakdown modeling.
 
-you can use readme as a shared notes app if you want to write smth important and "immortalize" it
+## Branches
+- `main`: schema, processor, fusion, benchmark, app
+- `Datasets`: manifests, pipelines, reference_targets, known_analogs_mask, golden_tiles
+- `BestAlgo/<module>`: Python reference implementations
+- `OptiAlgo/<module>`: C++20 optimized implementations
 
+## Modules
+topography, mineralogy, thermal_illumination, granular_aeolian, volatiles_subsurface
 
-make Best Proc. Mod. in Python
-make Optimized Proc. Mod. in cpp
-frontend in react (next.js router, SSR)
-backend rust (naive similirity done here, choose actual formula later, easiest is adding everything then dividing by total max percentage)
-
-redis for user-inputed weights + final result for immediate rendering
-
-db pg
+## Verification
+Run `benchmark/verify_parity.py` to compare BestAlgo vs OptiAlgo (RMSE, SSIM, speedup).
