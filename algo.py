@@ -74,10 +74,27 @@ def compute_similarity(earth_tile_path, target_tile_path, out_hmap_path, out_bre
                   "details": "Earth g=%s vs target g=%s" % (eg, tg)})
     flags.append({"flag": "ATMOSPHERE_GAP", "atmospheric_pressure_gap_pa": float(abs(eh["surface_pressure_pa"] - th["surface_pressure_pa"]))})
     flags.append({"flag": "RADIATION_DELTA", "radiation_delta_msv_yr": float(abs(eh["radiation_msv_yr"] - th["radiation_msv_yr"]))})
+    ndvi_vals = []
+    for k in range(num_octaves):
+        t = toct[k]
+        if t.shape[0] > 7:
+            v = t[7].ravel(); v = v[v != NODATA]
+            ndvi_vals.extend(v.tolist())
+    ndvi_mean = float(np.mean(ndvi_vals)) if ndvi_vals else 0.0
     if th["body"] == 2:
-        flags.append({"flag": "BIOSPHERE_OVERPRINT", "details": "Moon: NDVI>0.15 penalized."})
+        bio = bool(ndvi_mean > 0.15)
+        flags.append({"flag": "BIOSPHERE_OVERPRINT", "biosphere_overprint": bio,
+                      "details": "Moon: NDVI mean %.3f %s 0.15." % (ndvi_mean, ">" if bio else "<=")})
     else:
-        flags.append({"flag": "ASTROBIOLOGY_EXTREMOPHILE_ANALOG", "details": "Mars: sparse microbial analog boost."})
+        if ndvi_mean > 0.25:
+            flags.append({"flag": "BIOSPHERE_OVERPRINT", "biosphere_overprint": True,
+                          "details": "Mars: dense vegetation NDVI %.3f > 0.25." % ndvi_mean})
+        elif ndvi_mean > 0.05:
+            flags.append({"flag": "ASTROBIOLOGY_EXTREMOPHILE_ANALOG", "biosphere_overprint": False,
+                          "details": "Mars: sparse microbial analog (NDVI %.3f)." % ndvi_mean})
+        else:
+            flags.append({"flag": "ASTROBIOLOGY_EXTREMOPHILE_ANALOG", "biosphere_overprint": False,
+                          "details": "Mars: no biosphere overprint (NDVI %.3f)." % ndvi_mean})
 
     breakdown = {
         "scale_invariance_index": si,
