@@ -37,9 +37,21 @@ def apply_suppression(lat, lon, mask_features, buffer_km=150.0):
 
 
 def apply_mask_grid(lats, lons, mask_features, buffer_km=150.0):
-    H, W = len(lats), len(lons)
+    lats = np.asarray(lats, dtype=float)
+    lons = np.asarray(lons, dtype=float)
+    H, W = lats.size, lons.size
+    # vectorized haversine
+    lat_r = np.deg2rad(lats)[:, None]
+    lon_r = np.deg2rad(lons)[None, :]
     grid = np.ones((H, W), dtype=np.float32)
-    for i in range(H):
-        for j in range(W):
-            grid[i, j] = apply_suppression(float(lats[i]), float(lons[j]), mask_features, buffer_km)
+    for f in mask_features:
+        coords = f["geometry"]["coordinates"]
+        flon, flat = coords[0], coords[1]
+        buf = f.get("properties", {}).get("buffer_km", buffer_km)
+        dphi = np.deg2rad(flat) - lat_r
+        dl = np.deg2rad(flon) - lon_r
+        a = np.sin(dphi/2)**2 + np.cos(lat_r)*np.cos(np.deg2rad(flat))*np.sin(dl/2)**2
+        d = 2*6371.0*np.arcsin(np.sqrt(np.clip(a,0,1)))
+        w = np.clip(d/buf, 0.0, 1.0)
+        grid = grid * w.astype(np.float32)
     return grid
