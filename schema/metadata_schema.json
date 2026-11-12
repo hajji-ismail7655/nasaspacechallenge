@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TileMetadataSidecar",
+  "type": "object",
+  "required": ["tile_id", "proj4_laea", "channel_names", "source_datasets", "acquisition_window", "quality_mask_stats"],
+  "properties": {
+    "tile_id": { "type": "string" },
+    "proj4_laea": { "type": "string", "description": "PROJ.4 string for local Lambert Azimuthal Equal-Area grid" },
+    "channel_names": { "type": "array", "items": { "type": "string" } },
+    "source_datasets": { "type": "array", "items": { "type": "string" }, "description": "DOIs/mission IDs" },
+    "acquisition_window": { "type": "string" },
+    "quality_mask_stats": { "type": "object" },
+    "body": { "type": "string", "enum": ["EARTH", "MOON", "MARS"] },
+    "domain": { "type": "string", "enum": ["topography", "mineralogy", "thermal_illumination", "granular_aeolian", "volatiles_subsurface"] },
+    "center_lat_deg": { "type": "number" },
+    "center_lon_deg": { "type": "number" },
+    "base_resolution_m": { "type": "number" },
+    "base_height": { "type": "integer" },
+    "base_width": { "type": "integer" },
+    "num_octaves": { "type": "integer" },
+    "num_channels": { "type": "integer" }
+  }
+}
+EOF

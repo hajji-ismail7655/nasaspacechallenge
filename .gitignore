@@ -1,0 +1,37 @@
+# Infrastructure (local-only)
+agent_node.py
+hub_server.py
+
+# Bulk data & raw rasters
+data_lake/
+*.tif
+*.tiff
+*.img
+*.cub
+*.h5
+*.nc
+*.geotiff
+*.jp2
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# C++ build artifacts
+*.o
+*.so
+*.a
+build/
+*.bin
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+EOF

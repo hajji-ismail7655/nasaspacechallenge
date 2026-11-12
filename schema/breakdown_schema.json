@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ModuleBreakdown",
+  "type": "object",
+  "required": ["scale_invariance_index", "channel_residuals", "physical_breakdown_flags"],
+  "properties": {
+    "scale_invariance_index": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+    "channel_residuals": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["earth_mean", "target_mean", "z_divergence"],
+        "properties": {
+          "earth_mean": { "type": "number" },
+          "target_mean": { "type": "number" },
+          "z_divergence": { "type": "number" }
+        }
+      }
+    },
+    "physical_breakdown_flags": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["flag"],
+        "properties": {
+          "flag": { "type": "string" },
+          "gravity_scaling_factor": { "type": "number" },
+          "atmospheric_pressure_gap_pa": { "type": "number" },
+          "radiation_delta_msv_yr": { "type": "number" },
+          "thermal_floor_delta_k": { "type": "number" },
+          "biosphere_overprint": { "type": "boolean" },
+          "details": { "type": "string" }
+        }
+      }
+    }
+  }
+}
+EOF
