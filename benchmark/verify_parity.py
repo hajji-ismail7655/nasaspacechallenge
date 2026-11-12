@@ -94,17 +94,22 @@ def main():
     cpp_oct = read_hmap(cpp_hmap)
 
     max_rmse = 0.0
+    max_rmse_conf = 0.0
     min_ssim = 1.0
     for k in range(len(py_oct)):
         diff = py_oct[k][0] - cpp_oct[k][0]
         rmse = float(np.sqrt(np.mean(diff * diff)))
+        diffc = py_oct[k][1] - cpp_oct[k][1]
+        rmsec = float(np.sqrt(np.mean(diffc * diffc)))
         s = ssim(py_oct[k][0], cpp_oct[k][0])
         max_rmse = max(max_rmse, rmse)
+        max_rmse_conf = max(max_rmse_conf, rmsec)
         min_ssim = min(min_ssim, s)
 
     speedup = t_py / t_cpp if t_cpp > 0 else float("inf")
     result = {
         "rmse": max_rmse,
+        "rmse_conf": max_rmse_conf,
         "ssim": min_ssim,
         "latency_py_s": t_py,
         "latency_cpp_s": t_cpp,
@@ -114,7 +119,9 @@ def main():
         "speedup_pass": speedup >= args.speedup_threshold,
     }
     print(json.dumps(result, indent=2))
-    ok = result["rmse_pass"] and result["ssim_pass"] and result["speedup_pass"]
+    bd_ok = os.path.exists(py_bd) and os.path.exists(cpp_bd)
+    result["breakdown_pass"] = bd_ok
+    ok = result["rmse_pass"] and result["ssim_pass"] and result["speedup_pass"] and bd_ok
     sys.exit(0 if ok else 1)
 
 
