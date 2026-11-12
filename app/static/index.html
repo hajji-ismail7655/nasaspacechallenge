@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Cross-Planetary Terrestrial Analog Discovery Engine</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  body { margin:0; font-family: Arial, sans-serif; }
+  #topbar { padding:8px; background:#1a1a2e; color:#fff; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  #topbar label { font-size:12px; }
+  #topbar select, #topbar input { padding:4px; }
+  #container { display:flex; height: calc(100vh - 48px); }
+  #sidebar { width:320px; overflow:auto; background:#f5f5f5; padding:8px; }
+  #map { flex:1; }
+  #drawer { width:360px; overflow:auto; background:#fafafa; padding:8px; border-left:1px solid #ccc; }
+  .site { padding:6px; margin:4px 0; background:#fff; border:1px solid #ddd; cursor:pointer; }
+  .site:hover { background:#eef; }
+  .site.active { background:#def; border-color:#336; }
+  .badge { display:inline-block; padding:2px 6px; margin:2px; background:#fee; border:1px solid #c99; border-radius:4px; font-size:11px; }
+  .card { background:#fff; border:1px solid #ddd; padding:8px; margin:6px 0; border-radius:4px; }
+  h3 { margin:8px 0 4px; }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  td,th { border:1px solid #ddd; padding:3px; }
+</style>
+</head>
+<body>
+<div id="topbar">
+  <label>Target:
+    <select id="target"></select>
+  </label>
+  <label>Domain:
+    <select id="domain">
+      <option value="composite">Composite Fused</option>
+      <option value="topography">Topography</option>
+      <option value="mineralogy">Mineralogy</option>
+      <option value="thermal_illumination">Thermal & Illumination</option>
+      <option value="granular_aeolian">Granular & Aeolian</option>
+      <option value="volatiles_subsurface">Volatiles & Subsurface</option>
+    </select>
+  </label>
+  <label>Octave:
+    <input type="range" id="octave" min="0" max="4" value="0">
+    <span id="octval">30 m</span>
+  </label>
+  <label><input type="checkbox" id="novelty" checked> Novelty Mask (150km)</label>
+</div>
+<div id="container">
+  <div id="sidebar">
+    <h3>Ranked Analogs</h3>
+    <div id="sites"></div>
+  </div>
+  <div id="map"></div>
+  <div id="drawer">
+    <h3>Scientific Breakdown</h3>
+    <div id="info">Select a site.</div>
+  </div>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const octLabels = ["30 m","60 m","120 m","240 m","480 m"];
+const map = L.map('map').setView([20,0],2);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18}).addTo(map);
+let markers = [];
+let overlay = null;
+let selectedSite = null;
+let radarChart = null;
+
+async function loadTargets(){
+  const r = await fetch('/targets'); const d = await r.json();
+  const sel = document.getElementById('target');
+  d.targets.forEach(t=>{ const o=document.createElement('option'); o.value=t; o.text=t; sel.appendChild(o); });
+}
+
+async function loadSites(){
+  const target = document.getElementById('target').value;
+  const novelty = document.getElementById('novelty').checked;
+  const url = '/api/discoveries?target_id='+encodeURIComponent(target)+'&novelty_masked='+novelty;
+  const r = await fetch(url);
+  let sites = [];
+  try { sites = (await r.json()).sites || []; } catch(e){ sites=[]; }
+  const box = document.getElementById('sites');
+  box.innerHTML = '';
+  markers.forEach(m=>map.removeLayer(m)); markers=[];
+  sites.forEach((s,i)=>{
+    const div = document.createElement('div'); div.className='site'; div.id='site-'+i;
+    div.innerHTML = '<b>'+s.site_id+'</b><br>Composite: '+(s.composite||0).toFixed(3)+' | SI: '+(s.scale_invariance||0).toFixed(3)+' | Novelty: '+(s.novelty_weight||1).toFixed(2)+'<br><small>'+ (s.use_case||'') +'</small>';
+    div.onclick = ()=>selectSite(s,div);
+    box.appendChild(div);
+    if(s.lat!=null && s.lon!=null){
+      const m = L.marker([s.lat,s.lon]).addTo(map).bindPopup(s.site_id);
+      m.on('click',()=>selectSite(s,div));
+      markers.push(m);
+    }
+  });
+  if(sites.length && sites[0].lat!=null) map.setView([sites[0].lat,sites[0].lon],4);
+}
+
+async function selectSite(s, div){
+  document.querySelectorAll('.site').forEach(x=>x.classList.remove('active'));
+  if(div) div.classList.add('active');
+  selectedSite = s;
+  const octave = document.getElementById('octave').value;
+  const domain = document.getElementById('domain').value;
+  const layer = (domain==='composite')?'topography':domain;
+  // load heatmap overlay
+  if(overlay){ map.removeLayer(overlay); overlay=null; }
+  const url = '/api/heatmap/'+encodeURIComponent(s.site_id)+'/'+encodeURIComponent(document.getElementById('target').value)+'/'+layer+'/'+octave+'.png';
+  const img = new Image();
+  img.onload = ()=>{
+    const b = s.bbox || [s.lat-0.5,s.lon-0.5,s.lat+0.5,s.lon+0.5];
+    overlay = L.imageOverlay(url, [[b[0],b[1]],[b[2],b[3]]], {opacity:0.6}).addTo(map);
+  };
+  img.src = url;
+  // load breakdown
+  const bp = s.breakdown_path || '';
+  const r = await fetch('/breakdown/'+encodeURIComponent(s.site_id)+(bp?'?path='+encodeURIComponent(bp):''));
+  const d = await r.json();
+  const info = document.getElementById('info');
+  const bd = d.breakdown || {};
+  let html = '<b>'+s.site_id+'</b><br>';
+  html += 'Composite: '+(s.composite||0).toFixed(3)+' | SI: '+(s.scale_invariance||0).toFixed(3)+'<br>';
+  html += '<h4>Breakdown Flags</h4>';
+  (bd.physical_breakdown_flags||[]).forEach(f=>{ html += '<span class="badge">'+f.flag+'</span> '; });
+  html += '<h4>Channel Residuals</h4><table><tr><th>Ch</th><th>Earth</th><th>Target</th><th>Z</th></tr>';
+  const cr = bd.channel_residuals||{};
+  Object.keys(cr).forEach(k=>{ const v=cr[k]; html += '<tr><td>'+k+'</td><td>'+v.earth_mean.toFixed(3)+'</td><td>'+v.target_mean.toFixed(3)+'</td><td>'+v.z_divergence.toFixed(3)+'</td></tr>'; });
+  html += '</table>';
+  html += '<h4>Mission Test</h4><div class="card">'+(bd.operational_test_protocol||s.use_case||'N/A')+'</div>';
+  info.innerHTML = html;
+  // radar chart
+  const ctx = document.getElementById('radar');
+  if(!ctx){ const c=document.createElement('canvas'); c.id='radar'; info.appendChild(c); }
+  const scores = s.domain_scores || {};
+  const labels = Object.keys(scores);
+  const vals = Object.values(scores);
+  if(radarChart) radarChart.destroy();
+  radarChart = new Chart(document.getElementById('radar'), { type:'radar',
+    data:{ labels:labels, datasets:[{label:s.site_id, data:vals, backgroundColor:'rgba(54,162,235,0.2)', borderColor:'rgba(54,162,235,1)'}]},
+    options:{ scales:{r:{min:0,max:1}} }
+  });
+}
+
+document.getElementById('target').addEventListener('change', loadSites);
+document.getElementById('domain').addEventListener('change', ()=>{ if(selectedSite) selectSite(selectedSite, document.querySelector('.site.active')); });
+document.getElementById('octave').addEventListener('input', e=>{
+  document.getElementById('octval').innerText = octLabels[e.target.value];
+  if(selectedSite) selectSite(selectedSite, document.querySelector('.site.active'));
+});
+document.getElementById('novelty').addEventListener('change', loadSites);
+
+loadTargets().then(loadSites);
+</script>
+</body>
+</html>
+EOF
