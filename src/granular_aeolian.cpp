@@ -171,8 +171,7 @@ extern "C" int32_t run_module(const char* earth_ptile_path,
                 }
                 obase[oo + (0 * Hk + i) * Wk + j] = sim;
                 obase[oo + (1 * Hk + i) * Wk + j] = conf;
-                sum_sim += sim;
-                count++;
+                if (conf > 0.0f) { sum_sim += sim; count++; }
             }
         }
         if (count > 0) octave_means[k] = sum_sim / (double)count;
