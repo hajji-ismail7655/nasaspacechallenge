@@ -1,0 +1,17 @@
+{
+  "type": "FeatureCollection",
+  "name": "known_analogs_mask",
+  "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+  "features": [
+    { "type": "Feature", "properties": { "name": "Atacama core", "buffer_km": 150 }, "geometry": { "type": "Point", "coordinates": [-69.5, -24.0] } },
+    { "type": "Feature", "properties": { "name": "McMurdo Dry Valleys", "buffer_km": 150 }, "geometry": { "type": "Point", "coordinates": [162.0, -77.5] } },
+    { "type": "Feature", "properties": { "name": "Haughton Crater", "buffer_km": 150 }, "geometry": { "type": "Point", "coordinates": [-89.7, 75.4] } },
+    { "type": "Feature", "properties": { "name": "Iceland highlands", "buffer_km": 150 }, "geometry": { "type": "Point", "coordinates": [-19.0, 64.5] } },
+    { "type": "Feature", "properties": { "name": "Mauna Kea", "buffer_km": 150 }, "geometry": { "type": "Point", "coordinates": [-155.5, 19.8] } },
+    { "type": "Feature", "properties": { "name": "Kilauea", "buffer_km": 150 }, "geometry": { "type": "Point", "coordinates": [-155.3, 19.4] } },
+    { "type": "Feature", "properties": { "name": "Mojave", "buffer_km": 150 }, "geometry": { "type": "Point", "coordinates": [-116.0, 35.0] } },
+    { "type": "Feature", "properties": { "name": "Death Valley", "buffer_km": 150 }, "geometry": { "type": "Point", "coordinates": [-116.9, 36.5] } },
+    { "type": "Feature", "properties": { "name": "Rio Tinto", "buffer_km": 150 }, "geometry": { "type": "Point", "coordinates": [-6.6, 37.7] } },
+    { "type": "Feature", "properties": { "name": "Svalbard", "buffer_km": 150 }, "geometry": { "type": "Point", "coordinates": [16.0, 78.0] } }
+  ]
+}

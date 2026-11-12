@@ -1,0 +1,25 @@
+{
+  "tile_id": "earth_undara_volatiles_subsurface",
+  "proj4_laea": "+proj=laea +lat_0=-18.2 +lon_0=144.6",
+  "channel_names": [
+    "ch0",
+    "ch1",
+    "ch2",
+    "ch3",
+    "ch4"
+  ],
+  "source_datasets": [],
+  "acquisition_window": "2024-01-01/2024-12-31",
+  "quality_mask_stats": {
+    "valid_fraction": 0.99
+  },
+  "body": "EARTH",
+  "domain": "volatiles_subsurface",
+  "center_lat_deg": -18.2,
+  "center_lon_deg": 144.6,
+  "base_resolution_m": 30.0,
+  "base_height": 256,
+  "base_width": 256,
+  "num_octaves": 5,
+  "num_channels": 5
+}
