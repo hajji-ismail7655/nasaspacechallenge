@@ -1,0 +1,81 @@
+name: PR Invariants & Verification
+
+on:
+  pull_request:
+    branches:
+      - main
+      - Datasets
+      - 'BestAlgo/**'
+      - 'OptiAlgo/**'
+  workflow_dispatch:
+
+jobs:
+  invariants:
+    name: Repository Invariants
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check zero raw rasters or build binaries in git
+        run: |
+          if git ls-files | grep -E '\.(tif|tiff|img|cub|h5|nc|so|o|a)$|^data_lake/'; then
+            echo "ERROR: Forbidden raw raster, binary artifact, or data_lake/ file tracked in git."
+            exit 1
+          fi
+          echo "OK: Zero forbidden files tracked."
+
+      - name: Verify schema/tile_contract.h integrity
+        run: |
+          test -f schema/tile_contract.h
+          sha256sum schema/tile_contract.h
+          if git rev-parse --verify origin/main >/dev/null 2>&1; then
+            BASE_HASH=$(git show origin/main:schema/tile_contract.h | sha256sum | awk '{print $1}')
+            CUR_HASH=$(sha256sum schema/tile_contract.h | awk '{print $1}')
+            if [ "$BASE_HASH" != "$CUR_HASH" ]; then
+              echo "ERROR: schema/tile_contract.h differs from origin/main ($BASE_HASH vs $CUR_HASH)."
+              exit 1
+            fi
+          fi
+          echo "OK: schema/tile_contract.h matches canonical contract."
+
+  python-syntax:
+    name: Python Syntax Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile all tracked Python files
+        run: |
+          PY_FILES=$(git ls-files '*.py')
+          if [ -n "$PY_FILES" ]; then
+            python3 -m py_compile $PY_FILES
+            echo "OK: py_compile passed for all tracked .py files."
+          else
+            echo "No Python files on this branch."
+          fi
+
+  cpp-build:
+    name: C++20 Build & ASAN Compile Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+
+      - name: Build C++20 module if present
+        run: |
+          if [ -f build.sh ] && [ -d src ]; then
+            bash build.sh
+            rm -f *.so
+            echo "OK: C++20 build.sh succeeded."
+          else
+            echo "No C++20 build.sh on this branch."
+          fi
