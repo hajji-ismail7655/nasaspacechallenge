@@ -15,11 +15,34 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _tile_utils import (  # noqa: E402
     DOMAIN_IDS,
+    OFFICIAL_MOON_MARS_RESOURCES,
+    PROVENANCE_CALIBRATED_FALLBACK,
+    PROVENANCE_REAL_ORBITAL_COG,
     fetch_json,
     materialize_standardized_tile,
 )
 
 PDS_ODE_URL = "https://oderest.rsl.wustl.edu/live2/"
+OFFICIAL_MOON_MARS_PORTALS = dict(OFFICIAL_MOON_MARS_RESOURCES)
+
+DATASET_PORTAL_URLS = {
+    "LOLA": OFFICIAL_MOON_MARS_PORTALS["NASA LRO"],
+    "Diviner": OFFICIAL_MOON_MARS_PORTALS["NASA LRO Diviner"],
+    "Mini-RF": OFFICIAL_MOON_MARS_PORTALS["NASA LRO"],
+    "LROC NAC": OFFICIAL_MOON_MARS_PORTALS["NASA LRO"],
+    "M3": OFFICIAL_MOON_MARS_PORTALS["NASA PDS"],
+    "Kaguya TC/MI": OFFICIAL_MOON_MARS_PORTALS["NASA PDS"],
+    "GRAIL": OFFICIAL_MOON_MARS_PORTALS["NASA PDS"],
+    "CTX/HiRISE DEM": OFFICIAL_MOON_MARS_PORTALS["NASA PDS"],
+    "CRISM": OFFICIAL_MOON_MARS_PORTALS["NASA PDS"],
+    "THEMIS": OFFICIAL_MOON_MARS_PORTALS["NASA PDS"],
+    "MOLA/CTX DEM": OFFICIAL_MOON_MARS_PORTALS["NASA PDS"],
+    "SHARAD": OFFICIAL_MOON_MARS_PORTALS["NASA PDS"],
+    "GRS/HEND": OFFICIAL_MOON_MARS_PORTALS["NASA PDS"],
+    "HiRISE": OFFICIAL_MOON_MARS_PORTALS["NASA PDS"],
+    "THEMIS diurnal TIR": OFFICIAL_MOON_MARS_PORTALS["NASA PDS"],
+    "MCS": OFFICIAL_MOON_MARS_PORTALS["NASA PDS"],
+}
 
 TARGETS = {
     "moon_shackleton_degerlache": {
@@ -155,7 +178,7 @@ def main():
     ap = argparse.ArgumentParser(description="Moon & Mars ingestion & LAEA .ptile materializer")
     ap.add_argument("--data-lake", default="./data_lake")
     ap.add_argument("--out", default="", help="Optional path for legacy declarative ingest manifest")
-    ap.add_argument("--shape", type=int, default=128)
+    ap.add_argument("--shape", type=int, default=512, help="Square base raster dimension (default: 512 for 512x512 output)")
     ap.add_argument("--res", type=float, default=30.0)
     ap.add_argument("--offline", action="store_true", help="Skip network PDS ODE lookups")
     ap.add_argument("--no-materialize", action="store_true", help="Only write manifests without .ptile generation")
@@ -174,14 +197,22 @@ def main():
                 "target": tid,
                 "body": info["body"],
                 "dataset": ds,
+                "portal_url": DATASET_PORTAL_URLS.get(ds, OFFICIAL_MOON_MARS_PORTALS["NASA PDS"]),
                 "uri": f"{args.data_lake}/targets/{tid}/{ds}/",
                 "format": "PDS/STAC",
+                "default_provenance": PROVENANCE_CALIBRATED_FALLBACK,
+                "supported_provenance": [PROVENANCE_REAL_ORBITAL_COG, PROVENANCE_CALIBRATED_FALLBACK],
             })
 
     manifest_path = args.out or os.path.join(manifest_dir, "moon_mars_ingest_manifest.json")
     os.makedirs(os.path.dirname(manifest_path) or ".", exist_ok=True)
     with open(manifest_path, "w", encoding="utf-8") as f:
-        json.dump({"entries": out_entries, "count": len(out_entries), "targets": len(TARGETS)}, f, indent=2)
+        json.dump({
+            "official_resources": OFFICIAL_MOON_MARS_PORTALS,
+            "entries": out_entries,
+            "count": len(out_entries),
+            "targets": len(TARGETS),
+        }, f, indent=2)
 
     materialized = 0
     cli_tiles = []
@@ -204,6 +235,7 @@ def main():
                     num_octaves=5,
                     source_datasets=sources,
                     profile_hints=prof.get(domain),
+                    official_resources=OFFICIAL_MOON_MARS_PORTALS,
                     main_repo=args.main_repo or None,
                 )
                 cli_tiles.append(tile_info)
@@ -211,7 +243,11 @@ def main():
 
         cli_manifest_path = os.path.join(manifest_dir, "targets_cli_manifest.json")
         with open(cli_manifest_path, "w", encoding="utf-8") as f:
-            json.dump({"tiles": cli_tiles, "targets": TARGETS}, f, indent=2)
+            json.dump({
+                "official_resources": OFFICIAL_MOON_MARS_PORTALS,
+                "tiles": cli_tiles,
+                "targets": TARGETS,
+            }, f, indent=2)
 
     print(json.dumps({
         "targets": len(TARGETS),

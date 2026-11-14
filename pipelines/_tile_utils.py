@@ -50,7 +50,7 @@ CHANNEL_NAMES = {
     ],
 }
 
-# Physical reference means & scales matching BestAlgo v2.0 REFS
+# Physical reference means & scales matching OptiAlgo (C++20) v2.0 REFS
 CHANNEL_REFS = {
     "topography": [
         (500.0, 1000.0), (15.0, 15.0), (180.0, 103.9),
@@ -61,6 +61,44 @@ CHANNEL_REFS = {
     "granular_aeolian": [(0.3, 0.2), (0.1, 0.1), (100.0, 100.0), (0.1, 0.1), (100.0, 100.0)],
     "volatiles_subsurface": [(5.0, 5.0), (1.0, 1.0), (3.0, 2.0), (0.0, 50.0), (2.0, 2.0)],
 }
+
+OFFICIAL_EARTH_RESOURCES = {
+    "NASA Earthdata Search": "https://search.earthdata.nasa.gov/",
+    "NASA Worldview": "https://worldview.earthdata.nasa.gov/",
+    "ESA Copernicus Data Space": "https://dataspace.copernicus.eu/",
+    "ESA Open Science Catalog": "https://opensciencedata.esa.int/",
+    "CSA RADARSAT-1": "https://donnees-data.asc-csa.gc.ca/en/dataset/radarsat1",
+    "CSA RCM": "https://donnees-data.asc-csa.gc.ca/en/dataset/rcm",
+    "JAXA G-Portal": "https://gportal.jaxa.jp/gpr/index/index",
+}
+
+OFFICIAL_MOON_MARS_RESOURCES = {
+    "NASA PDS": "https://pds.nasa.gov/",
+    "NASA LRO": "https://pds-geosciences.wustl.edu/missions/lro/",
+    "NASA LRO Diviner": "https://pds-geosciences.wustl.edu/missions/lro/diviner.htm",
+}
+
+PROVENANCE_REAL_ORBITAL_COG = "REAL_ORBITAL_COG"
+PROVENANCE_CALIBRATED_FALLBACK = "CALIBRATED_FALLBACK"
+
+
+def build_channel_provenance(domain, external_grid=None, external_channels=None, channel_provenance=None):
+    """Build per-channel provenance mapping (REAL_ORBITAL_COG vs CALIBRATED_FALLBACK)."""
+    valid_tags = {PROVENANCE_REAL_ORBITAL_COG, PROVENANCE_CALIBRATED_FALLBACK}
+    explicit = channel_provenance or {}
+    ext_ch = external_channels or {}
+    prov = {}
+    for idx, ch_name in enumerate(CHANNEL_NAMES[domain]):
+        tag = explicit.get(ch_name, explicit.get(idx))
+        if tag in valid_tags:
+            prov[ch_name] = tag
+        elif external_grid is not None:
+            prov[ch_name] = PROVENANCE_REAL_ORBITAL_COG
+        elif (ch_name in ext_ch and ext_ch[ch_name] is not None) or (idx in ext_ch and ext_ch[idx] is not None):
+            prov[ch_name] = PROVENANCE_REAL_ORBITAL_COG
+        else:
+            prov[ch_name] = PROVENANCE_CALIBRATED_FALLBACK
+    return prov
 
 
 def norm_lon_deg(lon):
@@ -321,12 +359,15 @@ def materialize_standardized_tile(
     lon0,
     std_out_dir,
     raw_out_dir,
-    shape_hw=(128, 128),
+    shape_hw=(512, 512),
     base_res=30.0,
     num_octaves=5,
     source_datasets=None,
     profile_hints=None,
     external_grid=None,
+    external_channels=None,
+    channel_provenance=None,
+    official_resources=None,
     main_repo=None,
 ):
     """Stage raw multi-channel .npy + manifest metadata and materialize 5-octave .ptile/.json."""
@@ -334,18 +375,47 @@ def materialize_standardized_tile(
 
     reproject_to_laea, build_pyramid, write_ptile, write_json_sidecar = _try_import_processor(main_repo)
 
-    H, W = shape_hw
+    if isinstance(shape_hw, int):
+        H = W = int(shape_hw)
+    else:
+        H, W = int(shape_hw[0]), int(shape_hw[1])
     lat0 = float(lat0)
     lon0 = norm_lon_deg(lon0) if body.lower() == "earth" else float(lon0)
     R = BODIES[body.lower()]["radius_m"]
     binfo = BODIES[body.lower()]
 
     if external_grid is not None:
-        raw_chw = np.asarray(external_grid, dtype=np.float32)
+        raw_chw = np.asarray(external_grid, dtype=np.float32).copy()
     else:
         raw_chw = synthesize_geophysical_grid(entity_id, body, domain, (H, W), profile_hints)
 
+    if external_channels:
+        for idx, ch_name in enumerate(CHANNEL_NAMES[domain]):
+            ch_arr = external_channels.get(ch_name, external_channels.get(idx))
+            if ch_arr is not None:
+                raw_chw[idx] = np.asarray(ch_arr, dtype=np.float32)
+
     C = raw_chw.shape[0]
+    prov_map = build_channel_provenance(
+        domain,
+        external_grid=external_grid,
+        external_channels=external_channels,
+        channel_provenance=channel_provenance,
+    )
+    prov_values = set(prov_map.values())
+    if prov_values == {PROVENANCE_REAL_ORBITAL_COG}:
+        prov_mode = PROVENANCE_REAL_ORBITAL_COG
+    elif prov_values == {PROVENANCE_CALIBRATED_FALLBACK}:
+        prov_mode = PROVENANCE_CALIBRATED_FALLBACK
+    else:
+        prov_mode = "MIXED_COG_AND_FALLBACK"
+
+    resolved_resources = (
+        dict(official_resources)
+        if official_resources is not None
+        else dict(OFFICIAL_EARTH_RESOURCES if body.lower() == "earth" else OFFICIAL_MOON_MARS_RESOURCES)
+    )
+
     # Geographic coordinate grid spanning ~1.3x the metric footprint for reprojection
     half_deg_lat = max(0.08, math.degrees((H * base_res * 0.65) / R))
     cos_lat = max(0.15, math.cos(math.radians(max(-85.0, min(85.0, lat0)))))
@@ -369,8 +439,14 @@ def materialize_standardized_tile(
         "base_resolution_m": float(base_res),
         "channel_names": CHANNEL_NAMES[domain],
         "source_datasets": source_datasets or [],
+        "official_resources": resolved_resources,
+        "channel_provenance": prov_map,
         "acquisition_window": "2024-01-01/2025-12-31",
-        "quality_mask_stats": {"valid_fraction": round(valid_fraction, 4)},
+        "quality_mask_stats": {
+            "valid_fraction": round(valid_fraction, 4),
+            "provenance_mode": prov_mode,
+            "channel_provenance": prov_map,
+        },
     }
     with open(raw_meta, "w", encoding="utf-8") as f:
         json.dump(raw_meta_obj, f, indent=2)
@@ -416,10 +492,14 @@ def materialize_standardized_tile(
         "proj4_laea": f"+proj=laea +lat_0={lat0} +lon_0={lon0} +R={int(R)} +units=m",
         "channel_names": CHANNEL_NAMES[domain],
         "source_datasets": source_datasets or [],
+        "official_resources": resolved_resources,
+        "channel_provenance": prov_map,
         "acquisition_window": "2024-01-01/2025-12-31",
         "quality_mask_stats": {
             "valid_fraction": round(float(np.mean(laea_chw != NODATA)), 4),
-            "fallback_mode": external_grid is None,
+            "fallback_mode": prov_mode != PROVENANCE_REAL_ORBITAL_COG,
+            "provenance_mode": prov_mode,
+            "channel_provenance": prov_map,
         },
         "body": body.upper(),
         "domain": domain,
@@ -454,6 +534,9 @@ def materialize_standardized_tile(
         "lat0": lat0,
         "lon0": lon0,
         "channels": C,
+        "shape_hw": [H, W],
+        "provenance_mode": prov_mode,
+        "channel_provenance": prov_map,
         "src_npy": raw_npy,
         "src_meta": raw_meta,
         "ptile_path": ptile_path,

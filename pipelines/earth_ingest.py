@@ -14,17 +14,67 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _tile_utils import (  # noqa: E402
+    OFFICIAL_EARTH_RESOURCES,
+    PROVENANCE_CALIBRATED_FALLBACK,
+    PROVENANCE_REAL_ORBITAL_COG,
     fetch_json,
     materialize_standardized_tile,
     norm_lon_deg,
 )
 
+OFFICIAL_EARTH_PORTALS = dict(OFFICIAL_EARTH_RESOURCES)
+
 DOMAINS = {
-    "topography": ["Copernicus DEM GLO-30"],
-    "mineralogy": ["ASTER L1T/Emissivity", "Sentinel-2 MSI"],
-    "thermal_illumination": ["NASA ECOSTRESS", "MODIS MOD11A1"],
-    "granular_aeolian": ["Sentinel-1 SAR GRD", "MODIS AOD", "SoilGrids"],
-    "volatiles_subsurface": ["SMAP L3", "ESA CCI Permafrost"],
+    "topography": [
+        "Copernicus DEM GLO-30 (ESA Copernicus Data Space)",
+        "ALOS PRISM/AW3D30 (JAXA G-Portal)",
+        "SRTM GL1 (NASA Earthdata Search)",
+    ],
+    "mineralogy": [
+        "Sentinel-2 L2A MSI (ESA Copernicus Data Space)",
+        "ASTER L1T TIR/SWIR (NASA Earthdata Search)",
+        "HISUI/ALOS-3 (JAXA G-Portal)",
+    ],
+    "thermal_illumination": [
+        "NASA ECOSTRESS LST (NASA Earthdata Search)",
+        "MODIS MOD11A1/MYD11A1 (NASA Worldview)",
+    ],
+    "granular_aeolian": [
+        "Sentinel-1 SAR GRD (ESA Copernicus Data Space)",
+        "CSA RADARSAT-1 (CSA Open Data)",
+        "CSA RCM (CSA Open Data)",
+        "PALSAR-2 (JAXA G-Portal)",
+        "MODIS Dust AOD (NASA Worldview)",
+    ],
+    "volatiles_subsurface": [
+        "SMAP L3 Soil Moisture (NASA Earthdata Search)",
+        "ESA CCI Permafrost (ESA Open Science Catalog)",
+        "CSA RCM Polarimetric SAR (CSA Open Data)",
+    ],
+}
+
+SOURCE_PORTAL_URLS = {
+    "Copernicus DEM GLO-30 (ESA Copernicus Data Space)": OFFICIAL_EARTH_PORTALS["ESA Copernicus Data Space"],
+    "ALOS PRISM/AW3D30 (JAXA G-Portal)": OFFICIAL_EARTH_PORTALS["JAXA G-Portal"],
+    "SRTM GL1 (NASA Earthdata Search)": OFFICIAL_EARTH_PORTALS["NASA Earthdata Search"],
+    "Sentinel-2 L2A MSI (ESA Copernicus Data Space)": OFFICIAL_EARTH_PORTALS["ESA Copernicus Data Space"],
+    "ASTER L1T TIR/SWIR (NASA Earthdata Search)": OFFICIAL_EARTH_PORTALS["NASA Earthdata Search"],
+    "HISUI/ALOS-3 (JAXA G-Portal)": OFFICIAL_EARTH_PORTALS["JAXA G-Portal"],
+    "NASA ECOSTRESS LST (NASA Earthdata Search)": OFFICIAL_EARTH_PORTALS["NASA Earthdata Search"],
+    "MODIS MOD11A1/MYD11A1 (NASA Worldview)": OFFICIAL_EARTH_PORTALS["NASA Worldview"],
+    "Sentinel-1 SAR GRD (ESA Copernicus Data Space)": OFFICIAL_EARTH_PORTALS["ESA Copernicus Data Space"],
+    "CSA RADARSAT-1 (CSA Open Data)": OFFICIAL_EARTH_PORTALS["CSA RADARSAT-1"],
+    "CSA RCM (CSA Open Data)": OFFICIAL_EARTH_PORTALS["CSA RCM"],
+    "PALSAR-2 (JAXA G-Portal)": OFFICIAL_EARTH_PORTALS["JAXA G-Portal"],
+    "MODIS Dust AOD (NASA Worldview)": OFFICIAL_EARTH_PORTALS["NASA Worldview"],
+    "SMAP L3 Soil Moisture (NASA Earthdata Search)": OFFICIAL_EARTH_PORTALS["NASA Earthdata Search"],
+    "ESA CCI Permafrost (ESA Open Science Catalog)": OFFICIAL_EARTH_PORTALS["ESA Open Science Catalog"],
+    "CSA RCM Polarimetric SAR (CSA Open Data)": OFFICIAL_EARTH_PORTALS["CSA RCM"],
+}
+
+DOMAIN_OFFICIAL_RESOURCES = {
+    dom: sorted({SOURCE_PORTAL_URLS[s] for s in srcs})
+    for dom, srcs in DOMAINS.items()
 }
 
 STAC_SEARCH_URL = "https://planetarycomputer.microsoft.com/api/stac/v1/search"
@@ -55,7 +105,7 @@ CURATED_14_SITES = [
     {"id": "earth_mojave", "name": "Mojave (known analog)", "lat": 35.0, "lon": -116.0, "is_known_analog": True, "domain_focus": ["granular_aeolian"]},
 ]
 
-# Geophysical regional calibration hints matching BestAlgo v2.0 physical scales
+# Geophysical regional calibration hints matching OptiAlgo (C++20) v2.0 physical scales
 REGION_PROFILES = {
     "earth_anti_atlas": {
         "topography": {"elev_mean": 1150.0, "elev_amp": 520.0, "slope_gain": 1.35, "tri_bias": 22.0},
@@ -188,9 +238,12 @@ def build_manifest(region, data_lake="./data_lake"):
             entries.append({
                 "domain": d,
                 "source": s,
+                "portal_url": SOURCE_PORTAL_URLS.get(s, ""),
                 "region": region["id"],
                 "uri": f"{data_lake}/{region['id']}/{d}/",
                 "format": "GeoTIFF/STAC",
+                "default_provenance": PROVENANCE_CALIBRATED_FALLBACK,
+                "supported_provenance": [PROVENANCE_REAL_ORBITAL_COG, PROVENANCE_CALIBRATED_FALLBACK],
             })
     return entries
 
@@ -218,7 +271,7 @@ def main():
     ap.add_argument("--data-lake", default="./data_lake")
     ap.add_argument("--out", default="", help="Optional path for legacy declarative ingest manifest")
     ap.add_argument("--subset", choices=["curated14", "all"], default="curated14")
-    ap.add_argument("--shape", type=int, default=128, help="Square base raster dimension (power of 2 >= 64)")
+    ap.add_argument("--shape", type=int, default=512, help="Square base raster dimension (default: 512 for 512x512 output)")
     ap.add_argument("--res", type=float, default=30.0)
     ap.add_argument("--offline", action="store_true", help="Skip network STAC lookups")
     ap.add_argument("--no-materialize", action="store_true", help="Only write manifests without .ptile generation")
@@ -239,7 +292,13 @@ def main():
     manifest_path = args.out or os.path.join(manifest_dir, "earth_ingest_manifest.json")
     os.makedirs(os.path.dirname(manifest_path) or ".", exist_ok=True)
     with open(manifest_path, "w", encoding="utf-8") as f:
-        json.dump({"entries": out_entries, "count": len(out_entries), "regions": len(regions)}, f, indent=2)
+        json.dump({
+            "official_resources": OFFICIAL_EARTH_PORTALS,
+            "domain_official_resources": DOMAIN_OFFICIAL_RESOURCES,
+            "entries": out_entries,
+            "count": len(out_entries),
+            "regions": len(regions),
+        }, f, indent=2)
 
     materialized = 0
     if not args.no_materialize:
@@ -262,6 +321,7 @@ def main():
                     num_octaves=5,
                     source_datasets=sources,
                     profile_hints=prof.get(domain),
+                    official_resources=OFFICIAL_EARTH_PORTALS,
                     main_repo=args.main_repo or None,
                 )
                 info["name"] = r.get("name", rid)
@@ -271,7 +331,11 @@ def main():
 
         cli_manifest_path = os.path.join(manifest_dir, "earth_cli_manifest.json")
         with open(cli_manifest_path, "w", encoding="utf-8") as f:
-            json.dump({"tiles": cli_tiles, "regions": regions}, f, indent=2)
+            json.dump({
+                "official_resources": OFFICIAL_EARTH_PORTALS,
+                "tiles": cli_tiles,
+                "regions": regions,
+            }, f, indent=2)
 
     print(json.dumps({
         "regions": len(regions),
