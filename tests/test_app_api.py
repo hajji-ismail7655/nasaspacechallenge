@@ -41,6 +41,26 @@ def _write_test_hmap(path, bh=8, bw=8, num_octaves=5):
             f.write(block.tobytes())
 
 
+def _make_client(app):
+    try:
+        return TestClient(app)
+    except TypeError:
+        import asyncio
+        import httpx
+
+        class _CompatClient:
+            def get(self, url, **kwargs):
+                async def _req():
+                    async with httpx.AsyncClient(
+                        transport=httpx.ASGITransport(app=app),
+                        base_url="http://testserver",
+                    ) as ac:
+                        return await ac.get(url, **kwargs)
+                return asyncio.run(_req())
+
+        return _CompatClient()
+
+
 class TestAppApiAndAudit(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
@@ -67,7 +87,7 @@ class TestAppApiAndAudit(unittest.TestCase):
         self._bd_path = bd_path
 
         _write_test_hmap(os.path.join(results_dir, "earth_anti_atlas_moon_malapert_massif_topography.hmap"))
-        self.client = TestClient(app_main.app)
+        self.client = _make_client(app_main.app)
 
     def tearDown(self):
         app_main.DATA = self._orig_data
