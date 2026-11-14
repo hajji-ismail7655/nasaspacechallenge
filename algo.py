@@ -41,10 +41,6 @@ def compute_similarity(earth_tile_path, target_tile_path, out_hmap_path, out_bre
         e_raw = eoct[k][:num_channels].astype(np.float64)
         t_raw = toct[k][:num_channels].astype(np.float64)
         # resize target to earth shape if needed (nearest)
-        if t_raw.shape[1:] != e_raw.shape[1:]:
-            from scipy.ndimage import zoom
-            zf = (1, e_raw.shape[1] / t_raw.shape[1], e_raw.shape[2] / t_raw.shape[2])
-            t_raw = zoom(t_raw, zf, order=0)
         # raw residuals (preserve unnormalized)
         for c in range(num_channels):
             # filter nodata
