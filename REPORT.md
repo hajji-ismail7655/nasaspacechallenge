@@ -111,68 +111,54 @@ Mars: Jezero Western Fan, Arcadia Planitia (ISRU ice), Arsia Mons Pits, Bagnold 
 
 ---
 
-## 6. BestAlgo (Python Reference) Modules
+## 6. Reference Algorithm Architecture (v2.0 Local-Distribution Matching)
 
-Each module implements:
+All five domain modules implement v2.0 standardized local-distribution matching (`BestAlgo/<module>/algo.py` serves as the verification reference; production sweeps run exclusively on `OptiAlgo/*` C++20):
 ```python
 compute_similarity(earth_tile_path, target_tile_path, out_hmap_path, out_breakdown_path) -> None
 ```
 
-### Common core (`common.py`)
-- `read_ptile`: parse 128-byte header + octave payload into `(header, octaves, meta)`.
-- `write_hmap`: serialize `.hmap` (magic HMAP, 2 channels/octave) preserving gravity/pressure/radiation from input header.
-- `write_breakdown`: JSON dump.
-- `safe_mean`: nodata-aware mean.
+### Algorithm (v2.0)
+For each octave `k in [0..4]` (`30, 60, 120, 240, 480 m/px`):
+- **Physical-bounds z-score normalization**: Each channel is standardized against physical reference bounds and clipped to `[-5, 5]`; `-9999.0f` nodata is preserved as `NaN`.
+- **Target octave signature**: Computes per-channel target `mean`, `std`, exact linear quantiles `[Q10, Q25, Q50, Q75, Q90]`, and finite-difference texture energy on native target dimensions (zero spatial stretching; DEF-01 zoom removed).
+- **Sliding-window local distribution**: Over window radius `r_k = max(3, 15 >> k)` (`31×31` at `30 m` down to `7×7` at `480 m`), computes Wasserstein-1 quantile distance `W1 = (1/5) sum |q_e - q_t|` and normalized texture mismatch `deltaE = |E_e - E_t| / (E_e + E_t + 1e-6)`:
+  - `D = (1/C) sum_c (0.75 * W1_c + 0.25 * deltaE_c)`
+  - `sim = exp(-D)`
+  - `conf = f_valid / (1 + (1/C) sum_c |sigma_e - sigma_t|)` where `f_valid` is the minimum valid pixel fraction across channels (`sim = 0, conf = 0` when center pixel is nodata, `f_valid < 0.25`, or target octave is all-nodata).
+- **Domain-specific channels & flags**:
+  - `topography`: 6 stored channels + runtime low-angle solar illumination proxy `sin(slope_rad) * cos(aspect_rad)` as channel 6 (7 effective similarity channels); emits `NO_ATMOSPHERE_TARGET` for Moon.
+  - `mineralogy`: 8 channels; evaluates channel-7 `NDVI` on the **Earth candidate** (`eoct` / `eraw[7]`, DEF-04 fixed) to emit `BIOSPHERE_OVERPRINT` (`Moon NDVI > 0.15` or `Mars NDVI > 0.25`) or `ASTROBIOLOGY_EXTREMOPHILE_ANALOG` (`Mars 0.05 < NDVI <= 0.25`).
+  - `thermal_illumination`: 5 channels; emits `CRYOGENIC_FLOOR_DELTA` (`Earth T_min - Target T_min`) and `THERMAL_TEST_CHAMBER_CORRECTION`.
+  - `granular_aeolian`: 5 channels; emits `GRAVITY_ADJUSTED_SALTATION` (`u*_t` scaling with `sqrt(g)`).
+  - `volatiles_subsurface`: 5 channels; emits `SUBSURFACE_VOID_SCORING`.
 
-### Algorithm (all 5 modules share the same core)
-For each octave k:
-- Earth and target feature vectors per pixel (num_channels channels).
-- Cosine similarity → sim ∈ [0,1]; confidence = 1/(1+mean relative difference).
-- Nodata pixels (any channel == -9999) → sim=0, conf=0.
-- Output octave array: shape (2, H_k, W_k).
-
-**Scale-invariance index**: `1 - std(per-octave mean sim over valid pixels)`.
-
-**Channel residuals**: per channel — earth_mean, target_mean, z_divergence.
-
-**Physical breakdown flags**: gravity scaling factor, atmospheric pressure gap, radiation delta, plus domain-specific:
-- `topography`: no-atmosphere target flag.
-- `mineralogy`: BIOSPHERE_OVERPRINT (NDVI mean > 0.15).
-- `thermal_illumination`: CRYOGENIC_FLOOR_DELTA (Earth T_min − target T_min), THERMAL_TEST_CHAMBER_CORRECTION.
-- `granular_aeolian`: GRAVITY_ADJUSTED_SALTATION.
-- `volatiles_subsurface`: SUBSURFACE_VOID_SCORING.
-
-### Channel counts
-- topography: 6 (elevation, slope, aspect, TRI, TPI, profile curvature)
-- mineralogy: 8 (mafic/pyroxene, olivine, plagioclase, phyllosilicate, sulfate, iron oxide, silica/carbonate TIR, NDVI)
-- thermal_illumination: 5 (T_max, T_min, ΔT, albedo, ATI)
-- granular_aeolian: 5 (radar CPR, rock abundance, grain d50, dust AOD, dune spacing)
-- volatiles_subsurface: 5 (WEH, ice-table depth, dielectric, Bouguer gradient, pit aspect ratio)
+**Scale-invariance index**: `1 - std(per-octave valid mean sim)` clamped to `[0, 1]`.
 
 ---
 
-## 7. OptiAlgo (C++20 Optimized) Modules
+## 7. OptiAlgo (C++20 Production Engine) Modules
 
-Each module:
-- `include/<module>.h`: C ABI declaration `int32_t run_module(earth, target, out_hmap, out_breakdown)`.
-- `src/<module>.cpp`: implementation.
-- `bindings.py`: ctypes wrapper exposing `compute_similarity(...)` (auto-builds `.so` if missing).
+Each module (`OptiAlgo/<module>`):
+- `include/distribution_v2.hpp`: shared v2.0 C++20 local-distribution kernel.
+- `include/<module>.h` & `src/<module>.cpp`: C ABI `extern "C" int32_t run_module(earth, target, out_hmap, out_breakdown)`.
+- `bindings.py`: `ctypes` wrapper exposing `compute_similarity(...)` (auto-builds `.so` if missing).
 - `build.sh`: `g++ -O3 -march=native -fopenmp -std=c++20 -shared -fPIC`.
 
 ### Implementation details
 - **Zero-copy I/O**: `open()` + `mmap(PROT_READ, MAP_PRIVATE)` for inputs; `ftruncate()` + `mmap(PROT_READ|PROT_WRITE, MAP_SHARED)` for output.
-- **Header validation**: magic, version, st_size ≥ 128, bounds check against header dimensions.
-- **No heap allocation in kernels**: all buffers stack/arena; OpenMP `#pragma omp parallel for collapse(2)` + `#pragma omp simd`.
-- **Target indexing**: handles mismatched Earth/target dimensions via nearest-neighbor mapping (ti = i × th_Hk / Hk).
-- **Nodata handling**: `has_nodata` flag (not shadowed), norm threshold 1e-24, nodata-aware per-octave means.
-- **Breakdown JSON**: channel_residuals (ch0..chN) + domain-specific flags + scale_invariance_index.
+- **No heap allocation in hot loops**: per-pixel windows use fixed stack/thread-local buffers; OpenMP `#pragma omp parallel for collapse(2)` with `std::nth_element` quantile selection.
+- **No spatial stretching**: native target octave signatures replace v1 `ti = i * th_Hk / Hk` indexing.
+- **Breakdown JSON**: `scale_invariance_index`, `channel_residuals` (`earth_mean`, `target_mean`, `z_divergence`), and `physical_breakdown_flags` (with Earth-side `eraw[7].mean` NDVI check).
 
-### Parity gate results (verified)
-| Module | RMSE (sim) | RMSE (conf) | SSIM | Speedup | ASAN |
-|---|---|---|---|---|---|
-| topography | 0.0 | ~9e-9 | 1.0 | ~650× | clean |
-| mineralogy | 0.0 | ~1.3e-8 | 1.0 | ~467× | clean |
-| volatiles_subsurface | 0.0 | ~1.2e-8 | 1.0 | ~118× | clean |
+### Parity & ASAN gate results (verified post-DEF-04/DEF-01)
+| Module | Golden pair | RMSE (sim) | RMSE (conf) | SSIM | Speedup | ASAN/UBSan |
+|---|---|---:|---:|---:|---:|---|
+| topography | Earth Anti-Atlas -> Mars Arcadia | 9.31e-9 | 5.06e-8 | 1.000000 | 13.00x | PASS (`rc=0`) |
+| mineralogy | Earth Danakil -> Moon Aristarchus | 1.39e-8 | 3.46e-8 | 1.000000 | 41.41x | PASS (`rc=0`) |
+| thermal_illumination | Earth LUT Desert -> itself | 2.11e-8 | 4.78e-8 | 1.000000 | 10.10x | PASS (`rc=0`) |
+| granular_aeolian | Earth Tanezrouft -> Mars Bagnold | 1.64e-8 | 3.38e-8 | 1.000000 | 41.19x | PASS (`rc=0`) |
+| volatiles_subsurface | Earth Undara -> Mars Arsia Mons | 1.44e-8 | 2.34e-8 | 1.000000 | 38.14x | PASS (`rc=0`) |
 
 ---
 
@@ -209,10 +195,18 @@ Compiles C++ with `-fsanitize=address,undefined`, runs ctypes smoke test on prov
 
 ---
 
-## 10. App (`main/app/`)
+## 10. Interactive WebGIS Dashboard (`main/app/`)
 
-FastAPI dashboard backend:
-- `/health`, `/targets`, `/octaves` (30/60/120/240/480 m), `/novelty-mask` (toggle), `/breakdown/{site_id}` (loads `_breakdown.json` from path).
+FastAPI + Leaflet + Chart.js WebGIS dashboard (`app/main.py` & `app/static/index.html`):
+- `GET /`: serves interactive Leaflet + Chart.js WebGIS map UI (target selector, domain selector, `30 m–480 m` octave slider, `150 km` novelty toggle, and physical breakdown drawer).
+- `GET /health`: service health and data-lake availability.
+- `GET /targets`: returns the 8 Moon/Mars reference targets.
+- `GET /octaves`: returns `[30, 60, 120, 240, 480]`.
+- `GET /novelty-mask`: toggles `150 km` known-analog suppression (`enabled=true|false`).
+- `GET /api/discoveries`: ranked analog discoveries per `target_id` and `novelty_masked` flag.
+- `GET /api/geojson/known-analogs`: GeoJSON overlay of `150 km` known-analog suppression buffers.
+- `GET /api/heatmap/{site_id}/{target_id}/{domain}/{octave}.png`: renders RGBA PNG heatmap overlay from `.hmap` tiles.
+- `GET /breakdown/{site_id}`: returns per-channel residuals, physical breakdown flags, and mission protocols.
 
 ---
 
@@ -239,183 +233,7 @@ FastAPI dashboard backend:
 
 ---
 
-*End of coordinator report.*
-EOF
----
-
-# Agent 1 Technical Report (merged)
-
-## A1-1. Overall Architecture & Multi-Phase Pipeline (Phases 0–5)
-
-The **Cross-Planetary Terrestrial Analog Discovery Engine** (`nasaspacechallenge`) discovers, scores, and physically characterizes terrestrial analog sites for Artemis lunar targets and Mars exploration sites across five isolated scientific feature domains:
-1. `topography`
-2. `mineralogy`
-3. `thermal_illumination`
-4. `granular_aeolian`
-5. `volatiles_subsurface`
-
-### Repository Branch Topology (12 Branches)
-- **`main`**: Core contracts (`schema/`), ingestion standardization (`processor/`), late-fusion & dossier synthesis (`fusion/`), parity/sanitizer harness (`benchmark/`), FastAPI dashboard backend (`app/`), documentation (`README.md`, `METHODOLOGY.md`, `BENCHMARKS.md`), and `push_all_branches.sh`.
-- **`Datasets`**: Declarative Earth/Moon/Mars ingestion manifests (`manifests/`), STAC/PDS manifest generators (`pipelines/`), 8 reference targets (`reference_targets/targets.json`), 10 known-analog suppression zones (`known_analogs_mask.geojson`), and 10 deterministic golden tiles (`golden_tiles/`, ~20.6 MB).
-- **`BestAlgo/<domain>` (5 branches)**: Pure-Python/NumPy reference implementations (`algo.py`, `common.py`) serving as the numerical ground truth.
-- **`OptiAlgo/<domain>` (5 branches)**: High-performance C++20 implementations (`include/<domain>.h`, `src/<domain>.cpp`, `bindings.py`, `build.sh`) using POSIX `mmap` and OpenMP/SIMD, compiled to shared libraries and invoked via `ctypes`.
-
-### End-to-End Execution Pipeline (Phases 0–5)
-- **Phase 0 (Contracts & Bootstrap)**: Establishes the 128-byte binary header (`schema/tile_contract.h`), JSON metadata/breakdown schemas (`schema/metadata_schema.json`, `schema/breakdown_schema.json`), `.gitignore` (blocking raw GeoTIFF/IMG/CUB/H5/NC rasters), and the 12-branch structure.
-- **Phase 1 (Datasets & Standardization)**: Generates declarative STAC/PDS manifests (`pipelines/earth_ingest.py`, `pipelines/moon_mars_ingest.py`) and golden test tiles (`pipelines/gen_golden_tiles.py`). Raw rasters are standardized by `processor/` onto planetary-radius-aware Lambert Azimuthal Equal-Area (LAEA) grids and 5-octave Gaussian pyramids serialized as `.ptile` + `.json`.
-- **Phase 2 (`BestAlgo/*` Reference)**: Computes per-octave cosine similarity + confidence `.hmap` outputs and `_breakdown.json` diagnostics in Python.
-- **Phase 3 (`OptiAlgo/*` Accelerated)**: Re-implements the exact numerical contract in zero-copy `mmap` C++20 + OpenMP, gated against `BestAlgo/*` via `benchmark/verify_parity.py` and `benchmark/run_asan.sh`.
-- **Phase 4 (`fusion/`)**: Performs late fusion across all 5 domain `.hmap` outputs (`engine.py`), applies 150 km known-analog suppression (`novelty_mask.py`), maps targets to engineering test protocols (`mission_mapper.py`), and emits site dossiers (`breakdown_synthesizer.py`).
-- **Phase 5 (`app/` & Docs)**: Exposes FastAPI endpoints (`app/main.py`) alongside `METHODOLOGY.md` and `BENCHMARKS.md`.
-
----
-
-## A1-2. Binary Contract & Schema Layout (`schema/`)
-
-### `schema/tile_contract.h` (`PTIL` / `HMAP` Binary Format)
-
-Every `.ptile` (input feature pyramid) and `.hmap` (output similarity/confidence pyramid) begins with a **128-byte fixed header** (`TileBinaryHeader`, `alignas(64)` / `__attribute__((aligned(64)))`), verified at compile time (`static_assert(sizeof(TileBinaryHeader) == 128)`) and in Python (`struct.Struct("<IIIIIIII ddd ffff 56s")`, `size == 128`):
-
-| Offset | Type | Field | Semantics / Values |
-|---|---|---|---|
-| `0..3` | `uint32_t` | `magic` | `0x4C495450U` (`"PTIL"` LE) or `0x50414D48U` (`"HMAP"` LE) |
-| `4..7` | `uint32_t` | `version` | `1U` (`CONTRACT_VERSION`) |
-| `8..11` | `uint32_t` | `body` | `1=BODY_EARTH`, `2=BODY_MOON`, `3=BODY_MARS` |
-| `12..15` | `uint32_t` | `domain` | `1=TOPOGRAPHY`, `2=MINERALOGY`, `3=THERMAL_ILLUMINATION`, `4=GRANULAR_AEOLIAN`, `5=VOLATILES_SUBSURFACE` |
-| `16..19` | `uint32_t` | `num_octaves` | Scale-space octaves (default `5`) |
-| `20..23` | `uint32_t` | `num_channels` | Feature channels per octave (`PTIL`: 5–8; `HMAP`: `2` = `[sim, conf]`) |
-| `24..27` | `uint32_t` | `base_height` | Pixel height $H_0$ at octave 0 |
-| `28..31` | `uint32_t` | `base_width` | Pixel width $W_0$ at octave 0 |
-| `32..39` | `double` | `base_resolution_m` | Octave-0 GSD in meters/pixel (default `30.0`) |
-| `40..47` | `double` | `center_lat_deg` | Planetocentric latitude of tile center |
-| `48..55` | `double` | `center_lon_deg` | Planetocentric longitude (`0–360° E`) |
-| `56..59` | `float` | `nodata_value` | Canonical sentinel (`-9999.0f`) |
-| `60..63` | `float` | `gravity_ms2` | `9.80665` (Earth), `1.622` (Moon), `3.72076` (Mars) |
-| `64..67` | `float` | `surface_pressure_pa` | `101325.0` (Earth), `3e-10` (Moon), `610.0` (Mars) |
-| `68..71` | `float` | `radiation_msv_yr` | Baseline surface ionizing dose rate (mSv/yr) |
-| `72..127` | `uint8_t[56]` | `reserved` | Explicit zero-padding to 128 bytes |
-
-### Octave Payload Memory Layout
-Immediately starting at byte offset `128`, for $k \in [0, \text{num\_octaves}-1]$:
-$$H_k = \text{base\_height} \gg k, \qquad W_k = \text{base\_width} \gg k$$
-Each octave block occupies $\text{num\_channels} \times H_k \times W_k \times 4$ bytes in C-contiguous `[octave][channel][row][col]` IEEE-754 `float32` order. For `.hmap`, `num_channels = 2`, where channel `0` is `sim_map` and channel `1` is `conf_map`.
-
-### Companion JSON Schemas
-- **`schema/metadata_schema.json`** (`TileMetadataSidecar`): Requires `tile_id`, `proj4_laea`, `channel_names`, `source_datasets` (DOIs/mission IDs), `acquisition_window`, and `quality_mask_stats`, plus optional physical/grid mirrors (`body`, `domain`, `center_lat_deg`, `center_lon_deg`, `base_resolution_m`, `base_height`, `base_width`, `num_octaves`, `num_channels`).
-- **`schema/breakdown_schema.json`** (`ModuleBreakdown`): Requires `scale_invariance_index` ($\in [0, 1]$), `channel_residuals` (mapping channel key → `{earth_mean, target_mean, z_divergence}`), and `physical_breakdown_flags` (array of `{flag, ...}` objects carrying `gravity_scaling_factor`, `atmospheric_pressure_gap_pa`, `radiation_delta_msv_yr`, `thermal_floor_delta_k`, `biosphere_overprint`, and `details`).
-
----
-
-## A1-3. Standardization Processor (`processor/`)
-
-### `processor/reproject_laea.py`
-Standardizes geographic rasters (Earth EPSG:4326, Moon IAU:30100, Mars IAU:49900) onto local metric Lambert Azimuthal Equal-Area (LAEA) grids so all cross-planetary comparisons operate strictly in equal-area meters using exact spherical planetary radii:
-- **Earth**: $R = 6,371,000\text{ m}$
-- **Moon**: $R = 1,737,400\text{ m}$
-- **Mars**: $R = 3,389,500\text{ m}$
-
-`reproject_to_laea` constructs target pixel-center metric coordinates $(X, Y)$ (row 0 = north, $y$ decreasing downward), applies `laea_inverse` to map $(X, Y) \to (\text{lat}, \text{lon})$, ensures ascending `src_lats`, wraps target longitudes `tlon_w` by $\pm 360^{\circ}$ into $[\min(\text{src\_lons}), \max(\text{src\_lons})]$, and performs **nodata-normalized interpolation**: both `filled = where(source != nodata, source, 0.0)` and `valid = (source != nodata)` are interpolated via `RegularGridInterpolator` using the same `method` (default `"linear"`), returning `out / vout` where `vout > 1e-6` and `nodata` (`-9999.0`) elsewhere to prevent bilinear nodata smearing.
-
-### `processor/pyramid_builder.py`
-Generates a 5-octave anti-aliased multi-scale pyramid at `OCTAVE_RESOLUTIONS = [30.0, 60.0, 120.0, 240.0, 480.0]` m/px:
-- Octaves finer than the input (`30.0 * 2^k + 1e-6 < base_resolution_m`) are populated entirely with `nodata` (`-9999.0f`).
-- Valid octaves apply normalized Gaussian pre-filtering ($\sigma = \sigma_{\text{base}} \cdot 2^k$, $\sigma_{\text{base}} = 0.85$) over valid pixels (`sm / w` where `w > 1e-6`) on the base tile, followed by $2^k$ strided decimation (`[:, ::2^k, ::2^k]`) to produce `(C, H >> k, W >> k)`.
-
-### `processor/tile_writer.py` & `processor/cli.py`
-- `tile_writer.py` packs the 128-byte `TileBinaryHeader` (`HEADER_STRUCT`), writes C-contiguous `float32` octave blocks, and emits `.json` sidecars with planetary radius `+R=<R>` in `proj4_laea`.
-- `cli.py` (`--manifest`, `--out-dir`) batch-processes tiles onto a `512x512` `30.0 m/px` LAEA grid (`reproject_to_laea`), builds the 5-octave pyramid (`build_pyramid` with `base_resolution_m` from source metadata for coarse-octave masking), and writes `.ptile` + `.json` outputs.
-
----
-
-## A1-4. `Datasets` Branch Inventory
-
-- **Candidate Regions & Manifests (`manifests/`)**:
-  - `earth_candidates.json`: **31** terrestrial candidate regions (e.g., Anti-Atlas Morocco, Lut Desert Iran, Qaidam Basin China, Afar/Danakil Ethiopia, Tanezrouft Basin, Undara/Jeju lava tubes, Yakutia, plus known-analog control regions).
-  - `earth_ingest_manifest.json`: **310** declarative STAC entries (`31 regions × 10 domain sources`: Copernicus DEM GLO-30; ASTER L1T/Emissivity, Sentinel-2 MSI; NASA ECOSTRESS, MODIS MOD11A1; Sentinel-1 SAR GRD, MODIS AOD, SoilGrids; SMAP L3, ESA CCI Permafrost).
-  - `moon_mars_ingest_manifest.json`: **24** declarative PDS/STAC entries across 8 targets.
-- **Reference Targets (`reference_targets/targets.json`)**: **8** mission targets — **4 Lunar** (`moon_shackleton_degerlache`, `moon_malapert_massif`, `moon_aristarchus_plateau`, `moon_marius_hills_skylight`) and **4 Martian** (`mars_jezero_western_fan`, `mars_arcadia_planitia`, `mars_arsia_mons_pits`, `mars_bagnold_dunes`).
-- **Known-Analog Suppression Mask (`known_analogs_mask.geojson`)**: GeoJSON `FeatureCollection` of **10** classic terrestrial analog benchmarks (Atacama core, McMurdo Dry Valleys, Haughton Crater, Iceland highlands, Mauna Kea, Kilauea, Mojave, Death Valley, Rio Tinto, Svalbard), each with a `150 km` suppression radius (`buffer_km`).
-- **Golden Tiles (`golden_tiles/` & `pipelines/gen_golden_tiles.py`)**: **10** deterministic `.ptile` + `.json` pairs (`256×256` base, 5 octaves, `30.0 m/px`, `20` files verified in `manifests/checksums.json`, total size **20,609,270 bytes** ≈ 20.6 MB, well under the 50 MB limit), spanning Earth/Moon/Mars and all 5 domains with domain-specific `channel_names` and `+R=` LAEA metadata.
-
----
-
-## A1-5. `BestAlgo/*` vs `OptiAlgo/*`: Algorithm, Parity Gate & Benchmarks
-
-### Domain Feature Channels
-1. **`topography`** (6 ch): `elevation_z`, `slope_theta`, `aspect_psi`, `TRI`, `TPI`, `profile_curvature_kappa_p`
-2. **`mineralogy`** (8 ch): `mafic_pyroxene`, `olivine`, `plagioclase_anorthosite`, `phyllosilicate_clay`, `sulfate`, `iron_oxide`, `silica_carbonate_tir`, `ndvi_biosphere_mask`
-3. **`thermal_illumination`** (5 ch): `T_max`, `T_min`, `delta_T`, `albedo`, `ATI`
-4. **`granular_aeolian`** (5 ch): `radar_cpr`, `rock_abundance`, `grain_diameter_d50`, `dust_aod`, `dune_crest_spacing`
-5. **`volatiles_subsurface`** (5 ch): `weh_wt_percent`, `ice_table_depth_m`, `dielectric_permittivity`, `bouguer_gradient_mgal_km`, `pit_aspect_ratio`
-
-### Similarity, Confidence & Breakdown Math
-For each octave $k$ and pixel $(i, j)$, if any channel in Earth vector $\mathbf{e}$ or Target vector $\mathbf{t}$ equals `nodata_value` (`-9999.0`), or if squared norm $\le 10^{-24}$ ($\|\cdot\|_2 < 10^{-12}$), both `sim` and `conf` are `0.0`. Otherwise:
-$$\text{sim} = \text{clip}_{[0,1]}\!\left(\frac{1}{2}\left(\frac{\mathbf{e}\cdot\mathbf{t}}{\|\mathbf{e}\|_2 \|\mathbf{t}\|_2} + 1\right)\right), \qquad \text{rel} = \frac{1}{C}\sum_{c=0}^{C-1}\frac{|e_c - t_c|}{|e_c| + |t_c| + 10^{-6}}, \qquad \text{conf} = \frac{1}{1 + \text{rel}}$$
-- **Scale-Invariance Index**: Per-octave mean similarity $\mu_k$ is computed strictly over valid pixels (`conf > 0`), yielding $I_{\text{scale}} = \text{clip}_{[0,1]}(1 - \text{StdDev}_k(\mu_k))$.
-- **Channel Residuals**: Across all valid (`!= nodata`) pixels across octaves for each channel $c$ (`ch0..ch{C-1}`), computes `earth_mean`, `target_mean`, and pooled-variance divergence $z_{\text{div}} = (\mu_e - \mu_t)/\sqrt{\sigma_e^2 + \sigma_t^2 + 10^{-12}}$.
-- **Physical Breakdown Flags**: All modules emit `GRAVITY_SCALING` ($g_t/g_e$), `ATMOSPHERE_GAP` ($|P_e - P_t|$), and `RADIATION_DELTA` ($|R_e - R_t|$). Domain modules append:
-  - `mineralogy`: `BIOSPHERE_OVERPRINT` (NDVI mean > 0.15).
-  - `thermal_illumination`: `CRYOGENIC_FLOOR_DELTA` (Earth T_min − target T_min), `THERMAL_TEST_CHAMBER_CORRECTION`.
-  - `granular_aeolian`: `GRAVITY_ADJUSTED_SALTATION`.
-  - `volatiles_subsurface`: `SUBSURFACE_VOID_SCORING`.
-
-### `OptiAlgo/*` C++20 Implementation & Measured Parity (`BENCHMARKS.md`)
-Each `OptiAlgo/<domain>/src/<domain>.cpp` exposes `extern "C" int32_t run_module(...)`, uses POSIX `open`/`fstat`/`mmap(PROT_READ, MAP_PRIVATE)` on input `.ptile` files (with `st_size >= 128` and full payload-size bounds checks), writes the output `.hmap` via `ftruncate` + `mmap(MAP_SHARED)` + `msync` with zero heap allocation in the hot loop, parallelizes pixel loops via `#pragma omp parallel for collapse(2)`, handles mismatched Earth/Target dimensions via nearest-neighbor `(ti, tj)` mapping, and compiles with `g++ -O3 -march=native -fopenmp -std=c++20 -shared -fPIC` (`bindings.py` wraps via `ctypes`).
-
-**Parity Gate Criteria**: `RMSE < 1e-5` (both `sim` and `conf`), `SSIM > 0.9995`, `speedup >= 10x`, zero-copy `mmap`, ASAN/UBSan clean, and breakdown JSON parity (`scale_invariance_index` within `1e-5` + matching `channel_residuals` keys):
-
-| Module | RMSE (`sim`) | RMSE (`conf`) | SSIM | Speedup | Status |
-|---|---|---|---|---|---|
-| `topography` | `0.0` | `~9e-9` | `1.0` | `~650x` | PASS |
-| `mineralogy` | `0.0` | `~1.3e-8` | `1.0` | `~467x` | PASS |
-| `thermal_illumination` | `<1e-8` | `<1e-8` | `1.0` | `~100x+` | PASS |
-| `granular_aeolian` | `<1e-8` | `<1e-8` | `1.0` | `~100x+` | PASS |
-| `volatiles_subsurface` | `0.0` | `~1.2e-8` | `1.0` | `~118x` | PASS |
-
----
-
-## A1-5b. BestAlgo v2.0 Algorithm Update (Local-Distribution Matching)
-
-The v2.0 `BestAlgo/*` modules replace pixel-to-pixel raw cosine similarity with
-feature-standardized, scale-matched local-distribution comparison:
-
-- **Physical-bounds z-score normalization**: clip [-5, 5] using per-domain reference constants.
-- **Target octave signature**: per-channel mean, std, 5 quantiles [Q10,Q25,Q50,Q75,Q90], texture energy.
-- **Sliding-window Wasserstein-1**: radius r_k = max(3, 15>>k); D = (1/C) sum_c (0.75*W1_c + 0.25*deltaE_c); sim = exp(-D).
-- **Confidence**: f_valid (min over channels) * 1/(1 + mean |sigma_e - sigma_t|).
-- **Elimination of spatial stretching**: no `ti = i * th_Hk / Hk`; target is an octave distribution.
-- **Dual-mode NDVI**: Moon (NDVI>0.15 penalty + BIOSPHERE_OVERPRINT); Mars (NDVI>0.25 penalty, 0.05<NDVI<=0.25 extremophile boost (flag-only classification; sim multiplier reserved for v2.1)).
-- **Topography illumination proxy**: sin(slope)*cos(aspect) appended as feature channel.
-
-## A1-6. Late Fusion & Mission Characterization (`fusion/`)
-
-- **`fusion/engine.py`**:
-  - `composite_similarity(module_scores, weights)`: Aligns octave shapes across modules (`min(H), min(W)`), takes channel 0 (`sim`), and computes a **valid-module renormalized weighted average** (`valid = (arr != 0.0)`, dividing only by active weight sum `wsum`).
-  - `scale_invariance_filter(composite_octaves)`: Computes $I_{\text{scale}} = \text{clip}_{[0,1]}(1 - \text{StdDev}_k(S_{\text{total}}))$ across octaves, forces `I_scale = 0.0` where `(std == 0) & (mean == 0)` (all-nodata guard), and returns filtered octave maps alongside $I_{\text{scale}}$.
-- **`fusion/novelty_mask.py`**: Loads `known_analogs_mask.geojson` and applies linear distance-ramp down-weighting $w = \prod_m \min(1, d_m / \text{buffer\_km})$ (`0` at known-analog center, `1` at `>= 150 km`) via both scalar `apply_suppression` and vectorized NumPy `apply_mask_grid`.
-- **`fusion/mission_mapper.py`**: Maps all 8 Moon/Mars reference target IDs to targeted Artemis/Mars engineering test protocols (e.g., `moon_shackleton_degerlache` → grazing-illumination Lidar hazard detection; `mars_bagnold_dunes` → rover wheel-slip mobility assessment).
-- **`fusion/breakdown_synthesizer.py`**: Assembles structured site dossiers (`site_id`, `coordinates`, `module_scores`, `analogy_breakdown`, `operational_test_protocol`, `scale_range: "30m-480m"`) and serializes to JSON.
-
----
-
-## A1-7. Benchmark Harness (`benchmark/`) & WebGIS API (`app/`)
-
-- **`benchmark/verify_parity.py`**: Loads `BestAlgo/<mod>/algo.py` and `OptiAlgo/<mod>/bindings.py`, times both against Earth/Target `.ptile` inputs, reads output `.hmap` octave blocks, evaluates `rmse`, `rmse_conf`, `ssim`, `speedup`, and `breakdown_pass` (`scale_invariance_index` tolerance `1e-5` + `channel_residuals` key equality), and enforces all 5 gates via exit code.
-- **`benchmark/run_asan.sh`**: Compiles any `OptiAlgo` module with `-O1 -g -fsanitize=address,undefined -std=c++20 -shared -fPIC` and, when Earth/Target `.ptile` arguments are passed, executes `run_module` via `ctypes` and asserts return code `0`.
-- **`app/main.py`**: FastAPI service (`Cross-Planetary Terrestrial Analog Discovery Engine`) exposing:
-  - `GET /health` — liveness status
-  - `GET /targets` — lists all 8 Moon/Mars reference targets
-  - `GET /octaves` — returns `[30, 60, 120, 240, 480]` m/px scale levels
-  - `GET /novelty-mask?enabled=true|false` — known-analog 150 km suppression buffer toggle metadata
-  - `GET /breakdown/{site_id}?path=<json_path>` — loads and serves a serialized `_breakdown.json` dossier
-
----
-
-*End of merged technical report (coordinator + agent_1).*
-
----
-
-## A1-13. Empirical Discovery Findings & Case Studies (v2.0)
+## 13. Empirical Discovery Findings & Case Studies (v2.0)
 
 ### 13.1 Top 10 Previously Unrecognized Earth Analog Sites (pending Phase C sweep)
 
