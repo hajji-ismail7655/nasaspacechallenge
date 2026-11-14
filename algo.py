@@ -32,10 +32,6 @@ def compute_similarity(earth_tile_path, target_tile_path, out_hmap_path, out_bre
     for k in range(num_octaves):
         e_raw = eoct[k][:num_channels].astype(np.float64)
         t_raw = toct[k][:num_channels].astype(np.float64)
-        if t_raw.shape[1:] != e_raw.shape[1:]:
-            from scipy.ndimage import zoom
-            zf = (1, e_raw.shape[1] / t_raw.shape[1], e_raw.shape[2] / t_raw.shape[2])
-            t_raw = zoom(t_raw, zf, order=0)
         for c in range(num_channels):
             em = e_raw[c].ravel(); em = em[em != NODATA]
             tm = t_raw[c].ravel(); tm = tm[tm != NODATA]
@@ -76,9 +72,9 @@ def compute_similarity(earth_tile_path, target_tile_path, out_hmap_path, out_bre
     flags.append({"flag": "RADIATION_DELTA", "radiation_delta_msv_yr": float(abs(eh["radiation_msv_yr"] - th["radiation_msv_yr"]))})
     ndvi_vals = []
     for k in range(num_octaves):
-        t = toct[k]
-        if t.shape[0] > 7:
-            v = t[7].ravel(); v = v[v != NODATA]
+        e = eoct[k]
+        if e.shape[0] > 7:
+            v = e[7].ravel(); v = v[v != NODATA]
             ndvi_vals.extend(v.tolist())
     ndvi_mean = float(np.mean(ndvi_vals)) if ndvi_vals else 0.0
     if th["body"] == 2:
