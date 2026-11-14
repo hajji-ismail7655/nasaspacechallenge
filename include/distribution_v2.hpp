@@ -434,7 +434,7 @@ inline int32_t run(const char* earth_path,const char* target_path,const char* ou
             break;
         case Kind::Mineralogy: {
             double ndvi=0.0;
-            if(th->num_channels>7 && target_stat_channels>7 && traw[7].count) ndvi=traw[7].mean;
+            if(eh->num_channels>7 && raw_channels>7 && eraw[7].count) ndvi=eraw[7].mean;
             if(th->body==2) {
                 std::ostringstream s; s<<std::setprecision(17)<<"{\"flag\": \"BIOSPHERE_OVERPRINT\", \"biosphere_overprint\": "<<(ndvi>0.15?"true":"false")
                     <<", \"details\": \"Moon: NDVI mean "<<ndvi<<(ndvi>0.15?" > ":" <= ")<<"0.15.\"}";
