@@ -6,11 +6,11 @@ Golden-tile metrics below use the named Earth/target pair. Thermal illumination 
 
 | Module | Golden pair | RMSE (similarity) | RMSE (confidence) | SSIM | Speedup | Status |
 |---|---|---:|---:|---:|---:|---|
-| topography | Earth Anti-Atlas -> Mars Arcadia Planitia | 9.31e-9 | 5.06e-8 | 1.000000 | 37.92x | PASS |
-| mineralogy | Earth Danakil -> Moon Aristarchus Plateau | 1.39e-8 | 3.46e-8 | 1.000000 | 21.01x | PASS |
-| thermal_illumination | Earth LUT Desert -> itself | 2.11e-8 | 4.78e-8 | 1.000000 | 24.89x | PASS |
-| granular_aeolian | Earth Tanezrouft -> Mars Bagnold Dunes | 1.64e-8 | 3.38e-8 | 1.000000 | 22.97x | PASS |
-| volatiles_subsurface | Earth Undara -> Mars Arsia Mons Pits | 1.44e-8 | 2.34e-8 | 1.000000 | 21.04x | PASS |
+| topography | Earth Anti-Atlas -> Mars Arcadia Planitia | 9.31e-9 | 5.06e-8 | 1.000000 | 13.00x | PASS |
+| mineralogy | Earth Danakil -> Moon Aristarchus Plateau | 1.39e-8 | 3.46e-8 | 1.000000 | 41.41x | PASS |
+| thermal_illumination | Earth LUT Desert -> itself | 2.11e-8 | 4.78e-8 | 1.000000 | 10.10x | PASS |
+| granular_aeolian | Earth Tanezrouft -> Mars Bagnold Dunes | 1.64e-8 | 3.38e-8 | 1.000000 | 41.19x | PASS |
+| volatiles_subsurface | Earth Undara -> Mars Arsia Mons Pits | 1.44e-8 | 2.34e-8 | 1.000000 | 38.14x | PASS |
 
 **v2.0 algorithm**: standardized local-distribution matching (physical-bounds z-score, target signature, Wasserstein-1 quantile distance plus texture energy, minimum valid-fraction constraint, and nodata handling).
 
