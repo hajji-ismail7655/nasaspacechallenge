@@ -14,6 +14,10 @@ export const OCT=[30,60,120,240,480];
 export const score=(id,a)=>Math.round(38+rnd(hs(id+a))()*52);
 export const tgt=id=>{const m=META[id]||[id.replace(/_/g,' '),id.startsWith('moon')?'moon':'mars','Generic analog field validation','-','-'];return{id,name:m[0],body:m[1],test:m[2],lat:m[3],lon:m[4]}};
 export const WIDS=ASP.slice(1).map(a=>a.id);
-export const compOf=(id,w)=>{const s=WIDS.reduce((n,a)=>n+w[a]+1,0);return WIDS.reduce((n,a)=>n+score(id,a)*(w[a]+1),0)/s};
-/* One place to hook the backend: GET {API}/targets -> {targets:[id,...]}; falls back to the demo list. */
-export async function loadTargets(){try{const r=await fetch(API+'/targets',{signal:AbortSignal.timeout(2500)});return{ids:(await r.json()).targets,live:true}}catch{return{ids:Object.keys(META),live:false}}}
+export const compOf=(id,w,liveScores=null)=>{const s=WIDS.reduce((n,a)=>n+w[a]+1,0);return WIDS.reduce((n,a)=>{const v=liveScores&&typeof liveScores[a]==='number'?liveScores[a]*100:score(id,a);return n+v*(w[a]+1)},0)/s};
+export const heatmapUrl=(siteId,targetId,domain,oct)=>`${API}/api/heatmap/${encodeURIComponent(siteId)}/${encodeURIComponent(targetId)}/${encodeURIComponent(domain)}/${oct}.png`;
+
+/* Backend hooks with clean fallback to demo mode when offline or unpopulated. */
+export async function loadTargets(){try{const r=await fetch(API+'/targets',{signal:AbortSignal.timeout(2500)});if(!r.ok)throw 0;return{ids:(await r.json()).targets,live:true}}catch{return{ids:Object.keys(META),live:false}}}
+export async function loadDiscoveries(targetId,noveltyMasked=true){try{const r=await fetch(`${API}/api/discoveries?target_id=${encodeURIComponent(targetId)}&novelty_masked=${noveltyMasked}`,{signal:AbortSignal.timeout(3000)});if(!r.ok)throw 0;const d=await r.json();return{sites:d.sites||[],live:true}}catch{return{sites:[],live:false}}}
+export async function loadBreakdown(siteId,targetId){try{const r=await fetch(`${API}/breakdown/${encodeURIComponent(siteId)}?target_id=${encodeURIComponent(targetId)}`,{signal:AbortSignal.timeout(3000)});if(!r.ok)throw 0;const d=await r.json();return{breakdown:d.breakdown||null,live:true}}catch{return{breakdown:null,live:false}}}
