@@ -27,4 +27,4 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 topography, mineralogy, thermal_illumination, granular_aeolian, volatiles_subsurface
 
 ## Verification
-Run `benchmark/verify_parity.py` to verify BestAlgo vs OptiAlgo parity (RMSE, SSIM, speedup, breakdown), `pytest -v tests/` for unit/API checks, and `scripts/generate_figures.py` for `docs/figures/`.
+Run `benchmark/verify_parity.py` to verify parity (RMSE, SSIM, speedup, breakdown), `scripts/audit_repo.py` to verify 12-branch invariants, `pytest -v tests/` (or `python3 -m unittest discover -s tests -v`) for unit/API checks, and `scripts/generate_figures.py` for `docs/figures/`.

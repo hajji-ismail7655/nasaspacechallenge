@@ -1,7 +1,8 @@
 """Phase C Cross-Planetary Analog Discovery Sweep.
 
 Evaluates every standardized Earth region x Moon/Mars target pair across all 5
-physical domains using either OptiAlgo (C++20 bindings.py) or BestAlgo (Python algo.py),
+physical domains defaulting to the C++20 OptiAlgo backend (bindings.py, --backend cpp;
+legacy Python reference mode --backend python is opt-in only for verification),
 applies multi-module fusion and scale-invariance filtering (fusion/engine.py),
 applies 150 km known-analog novelty suppression (fusion/novelty_mask.py), maps
 operational engineering protocols (fusion/mission_mapper.py), and writes ranked
@@ -454,8 +455,8 @@ def run_sweep(
 
 def main():
     ap = argparse.ArgumentParser(description="Run cross-planetary discovery sweep across standardized tiles")
-    ap.add_argument("--backend", choices=["cpp", "python"], default="cpp")
-    ap.add_argument("--fallback-python", action="store_true", help="Fallback to BestAlgo if an OptiAlgo backend is unavailable")
+    ap.add_argument("--backend", choices=["cpp", "python"], default="cpp", help="Execution backend (default: cpp for OptiAlgo C++20)")
+    ap.add_argument("--fallback-python", action="store_true", help="Optional fallback to Python reference if an OptiAlgo C++20 backend is unavailable")
     ap.add_argument("--earth-dir", default="./data_lake/standardized/earth")
     ap.add_argument("--target-dir", default="./data_lake/standardized/targets")
     ap.add_argument("--out-dir", default="./data_lake/results")

@@ -250,7 +250,7 @@ FastAPI + Leaflet + Chart.js WebGIS dashboard (`app/main.py` & `app/static/index
 | 9 | Kumtagh Feather Dunes, China | Mars (Bagnold Dunes) | pending | pending | pending | Aeolian bedform analog |
 | 10 | Jebel Saghro, Morocco | Moon (Aristarchus) | pending | pending | pending | Alkaline volcanic plateau |
 
-*Scores pending execution of Phase C global sweep (`fusion/run_discovery_sweep.py`) on real standardized tiles.*
+*Scores pending execution of Phase C global sweep (`fusion/run_discovery_sweep.py --backend cpp` via C++20 `OptiAlgo/*`) on real standardized tiles.*
 
 ### 13.2 Deep-Dive Scientific Case Studies
 
