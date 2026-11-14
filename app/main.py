@@ -7,9 +7,16 @@ import struct
 import subprocess
 
 from fastapi import FastAPI, Query, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 
 app = FastAPI(title="Cross-Planetary Terrestrial Analog Discovery Engine")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATIC = os.path.join(BASE, "app", "static")
