@@ -16,6 +16,7 @@ export default function ResultsPage({ body, mode }) {
   const selection = saved?.selection || null;
   const [data, setData] = useState(null);
   const [status, setStatus] = useState(selection ? 'loading' : 'none');
+  const [error, setError] = useState('');
   const [weights, setWeights] = useState(defaultWeights);
   const [thermal, setThermal] = useState(false);
   const [drawer, setDrawer] = useState(false);
@@ -24,7 +25,7 @@ export default function ResultsPage({ body, mode }) {
     if (!selection) return;
     getComparison({ body, selection: toProviderSelection(selection) })
       .then((d) => { setData(d); setStatus('ok'); })
-      .catch(() => setStatus('nodata'));
+      .catch((e) => { setError(e?.message || 'The backend comparison is unavailable.'); setStatus('nodata'); });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const scores = data?.scores || Object.fromEntries(CHARACTERISTICS.map((c) => [c.id, null]));
@@ -59,7 +60,7 @@ export default function ResultsPage({ body, mode }) {
         <p className="copy copy--center results__sel">
           {selection?.point && <>Point {fmtLat(selection.point.lat)}, {fmtLon(selection.point.lon)}. </>}
           {selection?.area && <>Area ({selection.area.shape}). </>}
-          {status === 'nodata' && 'Dataset not connected yet.'}
+          {status === 'nodata' && error}
           {status === 'none' && 'No selection. Go back and choose a point or an area.'}
         </p>
       </section>
@@ -91,7 +92,7 @@ export default function ResultsPage({ body, mode }) {
         </div>
         <ul className="key">
           <li className="eyebrow">Thermal code</li>
-          {t?.legend?.length ? t.legend.map((l) => <li key={l.code}><b>{l.code}</b> {l.meaning}</li>) : <li>Key available once the dataset is connected.</li>}
+          {t?.legend?.length ? t.legend.map((l) => <li key={l.code}><b>{l.code}</b> {l.meaning}</li>) : <li>The backend provides domain similarity scores; thermal globe textures are not published yet.</li>}
         </ul>
       </section>
 
