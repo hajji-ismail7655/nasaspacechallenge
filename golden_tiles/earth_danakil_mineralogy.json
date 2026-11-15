@@ -1,0 +1,28 @@
+{
+  "tile_id": "earth_danakil_mineralogy",
+  "proj4_laea": "+proj=laea +lat_0=14.0 +lon_0=40.3 +R=6371000",
+  "channel_names": [
+    "mafic_pyroxene",
+    "olivine",
+    "plagioclase_anorthosite",
+    "phyllosilicate_clay",
+    "sulfate",
+    "iron_oxide",
+    "silica_carbonate_tir",
+    "ndvi_biosphere_mask"
+  ],
+  "source_datasets": [],
+  "acquisition_window": "2024-01-01/2024-12-31",
+  "quality_mask_stats": {
+    "valid_fraction": 0.99
+  },
+  "body": "EARTH",
+  "domain": "mineralogy",
+  "center_lat_deg": 14.0,
+  "center_lon_deg": 40.3,
+  "base_resolution_m": 30.0,
+  "base_height": 256,
+  "base_width": 256,
+  "num_octaves": 5,
+  "num_channels": 8
+}

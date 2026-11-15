@@ -1,0 +1,26 @@
+{
+  "tile_id": "mars_arcadia_planitia_topography",
+  "proj4_laea": "+proj=laea +lat_0=40.0 +lon_0=170.0 +R=3389500",
+  "channel_names": [
+    "elevation_z",
+    "slope_theta",
+    "aspect_psi",
+    "TRI",
+    "TPI",
+    "profile_curvature_kappa_p"
+  ],
+  "source_datasets": [],
+  "acquisition_window": "2024-01-01/2024-12-31",
+  "quality_mask_stats": {
+    "valid_fraction": 0.99
+  },
+  "body": "MARS",
+  "domain": "topography",
+  "center_lat_deg": 40.0,
+  "center_lon_deg": 170.0,
+  "base_resolution_m": 30.0,
+  "base_height": 256,
+  "base_width": 256,
+  "num_octaves": 5,
+  "num_channels": 6
+}
