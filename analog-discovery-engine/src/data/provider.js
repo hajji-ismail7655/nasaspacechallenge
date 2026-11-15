@@ -1,4 +1,4 @@
-const API = String(window.ANALOG_API || 'http://localhost:8000').replace(/\/$/, '');
+const API = String(import.meta.env.VITE_API_BASE_URL || window.ANALOG_API || 'http://localhost:8000').replace(/\/$/, '');
 
 const DOMAINS = [
   'topography',

@@ -111,6 +111,7 @@ def main():
     ap.add_argument("--manifest", required=True, help="JSON manifest listing tiles")
     ap.add_argument("--out-dir", required=True)
     ap.add_argument("--shape", type=int, nargs="+", default=[512, 512], help="Output H [W] base shape (default: 512 512)")
+    ap.add_argument("--split-by-body", action="store_true", help="Write tiles under earth/ and targets/ folders for the discovery sweep")
     args = ap.parse_args()
     os.makedirs(args.out_dir, exist_ok=True)
     with open(args.manifest, encoding="utf-8") as f:
@@ -118,7 +119,12 @@ def main():
     default_shape = _resolve_shape(args.shape)
     results = []
     for entry in manifest.get("tiles", []):
-        out_base = os.path.join(args.out_dir, entry["tile_id"])
+        tile_dir = args.out_dir
+        if args.split_by_body:
+            body_dir = "earth" if entry["body"].lower() == "earth" else "targets"
+            tile_dir = os.path.join(args.out_dir, body_dir)
+            os.makedirs(tile_dir, exist_ok=True)
+        out_base = os.path.join(tile_dir, entry["tile_id"])
         entry_shape = entry.get("shape") or entry.get("shape_hw") or default_shape
         process_one(
             entry["src_npy"],
