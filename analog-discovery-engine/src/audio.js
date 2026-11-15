@@ -30,33 +30,31 @@ export const sfx = (() => {
   };
 })();
 
-export const music = (() => {
-  const OVERLAP = 4, TARGET = 0.3;
-  let on = true, level = 0, running = false, timer = 0, P, Q;
+ export const music = (() => {
+  const TARGET = 0.3;
+  let on = true, level = 0, timer = 0, started = false, a;
 
-  const make = () => {
-    const a = new Audio(asset('audio/quiet-echoes.mp3'));
-    a.preload = 'auto'; a.volume = on ? level : 0;
-    a.onended = () => { if (a !== P) return; if (Q.paused) play(Q); swap(); };
-    return a;
+  const ensure = () => {
+    if (a) return;
+    a = new Audio(asset('audio/quiet-echoes.mp3'));
+    a.loop = true; a.preload = 'auto'; a.volume = 0;
+    a.addEventListener('ended', () => { a.currentTime = 0; a.play().catch(() => {}); });
+    document.addEventListener('visibilitychange', () => {
+      if (started && document.visibilityState === 'visible' && a.paused) a.play().catch(() => {});
+    });
   };
-  const ensure = () => { if (!P) { P = make(); Q = make(); } };
-  const apply = () => { P.volume = Q.volume = on ? level : 0; };
-  const play = (el) => el.play().catch(() => {});
-  const swap = () => { const old = P; P = Q; Q = make(); old.onended = null; try { old.pause(); } catch {} };
-  const tick = () => {
-    if (!running) return;
-    if (level < TARGET) { level = Math.min(TARGET, level + 0.008); apply(); }
-    const d = P.duration;
-    if (d && isFinite(d) && !P.paused && d - P.currentTime <= OVERLAP && Q.paused) play(Q);
+  const apply = () => { a.volume = on ? level : 0; };
+  const fadeIn = () => {
+    if (level >= TARGET) { clearInterval(timer); return; }
+    level = Math.min(TARGET, level + 0.008); apply();
   };
 
   return {
-    prime() { ensure(); P.play().catch(() => {}); },
+    prime() { ensure(); a.play().catch(() => {}); },
     start() {
-      ensure(); level = 0; apply();
-      if (P.currentTime > 0.05) { P.onended = null; P = make(); }
-      play(P); running = true; clearInterval(timer); timer = setInterval(tick, 100);
+      ensure(); started = true; level = 0; apply();
+      a.currentTime = 0; a.play().catch(() => {});
+      clearInterval(timer); timer = setInterval(fadeIn, 100);
     },
     toggle() { ensure(); on = !on; apply(); return on; },
     isOn: () => on,
