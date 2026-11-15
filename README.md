@@ -7,6 +7,9 @@ open datasets, dual-tier Python/C++ processing modules, and explicit physical an
 ## Integrated Pipeline and UI
 
 ```bash
+# Install Python runtime and geospatial dependencies once.
+python3 -m pip install -r requirements.txt
+
 # 1. Acquire and stage Phase 2 inputs (real COG channels where supported;
 #    unsupported channels are explicitly marked as calibrated fallback).
 python3 pipelines/phase2_real_ingest.py --shape 512 --out data_lake/phase2
