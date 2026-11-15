@@ -89,6 +89,7 @@ def process_one(src_npy, src_meta, body, domain, lat0, lon0, out_base, channels=
             "proj4_laea": f"+proj=laea +lat_0={lat0} +lon_0={lon0} +R={R}",
             "channel_names": ch_names,
             "source_datasets": meta.get("source_datasets") or [],
+            "channel_provenance": meta.get("channel_provenance") or [],
             "acquisition_window": meta.get("acquisition_window") or "",
             "quality_mask_stats": meta.get("quality_mask_stats") or {},
             "body": body.upper(),
