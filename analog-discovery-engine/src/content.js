@@ -55,3 +55,5 @@ export const UI = {
 };
 
 export const CREDITS = 'BlackOpps · All rights reserved 2026 · NASA Space Apps Challenge · Music "Quiet Echoes" by Brioso.';
+export const CREATORS = ['Ilyas Amine', 'Taha Hamam', 'Ismail Hajji', 'Amine Bouaafia', 'Mohammed Ilyas Gannouni'];
+export const CREDITS_NOTE = 'Humans have always looked up and wondered. We built this so the next step off Earth begins with knowing where to land. It has been a pleasure, and a privilege, to build it together.';

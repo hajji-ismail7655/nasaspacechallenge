@@ -19,13 +19,15 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .intro.is-out { opacity: 0; pointer-events: none; }
 .intro__logo { width: min(54vmin, 520px); opacity: 0; transition: opacity 2.4s ease-in-out; }
 .intro__logo.is-on { opacity: 1; }
-.intro__begin { position: absolute; bottom: 12vh; font: 500 12px var(--display); letter-spacing: .38em; text-transform: uppercase; color: var(--ink-faint); transition: opacity 1s; animation: pulse 2.6s ease-in-out infinite; }
+.intro__begin { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 22px 40px; white-space: nowrap; font: 500 clamp(18px, 2.4vw, 30px) var(--display); letter-spacing: .38em; text-transform: uppercase; color: var(--ink-faint); transition: opacity 1s; animation: pulse 2.6s ease-in-out infinite; }
 .intro__begin[disabled] { cursor: default; animation: none; opacity: .45; }
 @keyframes pulse { 50% { color: #fff; } }
 .topbar { position: fixed; inset: 0 0 auto 0; z-index: 20; display: flex; justify-content: space-between; align-items: center; padding: 22px clamp(20px,3vw,44px); font: 500 12px var(--display); letter-spacing: .3em; text-transform: uppercase; opacity: 0; transition: opacity 1.8s ease .4s; }
 .is-revealed .topbar { opacity: 1; }
 .topbar__sound { color: var(--ink-faint); font: inherit; letter-spacing: inherit; text-transform: inherit; padding-bottom: 3px; border-bottom: 1px solid transparent; transition: color .3s, border-color .3s; }
 .topbar__sound:hover { color: var(--ink); border-color: var(--line); }
+.topbar__actions { display: flex; gap: clamp(16px, 2vw, 32px); }
+@media (max-width: 600px) { .topbar__actions { gap: 14px; } }
 .eyebrow { font: 500 12px var(--display); letter-spacing: .34em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 18px; }
 .display { font: 500 clamp(1.6rem,2.4vw,2.6rem)/1.2 var(--display); letter-spacing: .02em; color: var(--ink); }
 .display--sm { font-size: clamp(1.2rem,1.6vw,1.7rem); letter-spacing: .04em; }
