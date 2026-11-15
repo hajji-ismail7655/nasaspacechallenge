@@ -1,0 +1,323 @@
+{
+  "official_resources": {
+    "NASA PDS": "https://pds.nasa.gov/",
+    "NASA LRO": "https://pds-geosciences.wustl.edu/missions/lro/",
+    "NASA LRO Diviner": "https://pds-geosciences.wustl.edu/missions/lro/diviner.htm"
+  },
+  "entries": [
+    {
+      "target": "moon_shackleton_degerlache",
+      "body": "MOON",
+      "dataset": "LOLA",
+      "portal_url": "https://pds-geosciences.wustl.edu/missions/lro/",
+      "uri": "./data_lake/targets/moon_shackleton_degerlache/LOLA/",
+      "format": "PDS/STAC",
+      "default_provenance": "CALIBRATED_FALLBACK",
+      "supported_provenance": [
+        "REAL_ORBITAL_COG",
+        "CALIBRATED_FALLBACK"
+      ]
+    },
+    {
+      "target": "moon_shackleton_degerlache",
+      "body": "MOON",
+      "dataset": "Diviner",
+      "portal_url": "https://pds-geosciences.wustl.edu/missions/lro/diviner.htm",
+      "uri": "./data_lake/targets/moon_shackleton_degerlache/Diviner/",
+      "format": "PDS/STAC",
+      "default_provenance": "CALIBRATED_FALLBACK",
+      "supported_provenance": [
+        "REAL_ORBITAL_COG",
+        "CALIBRATED_FALLBACK"
+      ]
+    },
+    {
+      "target": "moon_shackleton_degerlache",
+      "body": "MOON",
+      "dataset": "Mini-RF",
+      "portal_url": "https://pds-geosciences.wustl.edu/missions/lro/",
+      "uri": "./data_lake/targets/moon_shackleton_degerlache/Mini-RF/",
+      "format": "PDS/STAC",
+      "default_provenance": "CALIBRATED_FALLBACK",
+      "supported_provenance": [
+        "REAL_ORBITAL_COG",
+        "CALIBRATED_FALLBACK"
+      ]
+    },
+    {
+      "target": "moon_shackleton_degerlache",
+      "body": "MOON",
+      "dataset": "M3",
+      "portal_url": "https://pds.nasa.gov/",
+      "uri": "./data_lake/targets/moon_shackleton_degerlache/M3/",
+      "format": "PDS/STAC",
+      "default_provenance": "CALIBRATED_FALLBACK",
+      "supported_provenance": [
+        "REAL_ORBITAL_COG",
+        "CALIBRATED_FALLBACK"
+      ]
+    },
+    {
+      "target": "moon_malapert_massif",
+      "body": "MOON",
+      "dataset": "LOLA",
+      "portal_url": "https://pds-geosciences.wustl.edu/missions/lro/",
+      "uri": "./data_lake/targets/moon_malapert_massif/LOLA/",
+      "format": "PDS/STAC",
+      "default_provenance": "CALIBRATED_FALLBACK",
+      "supported_provenance": [
+        "REAL_ORBITAL_COG",
+        "CALIBRATED_FALLBACK"
+      ]
+    },
+    {
+      "target": "moon_malapert_massif",
+      "body": "MOON",
+      "dataset": "Diviner",
+      "portal_url": "https://pds-geosciences.wustl.edu/missions/lro/diviner.htm",
+      "uri": "./data_lake/targets/moon_malapert_massif/Diviner/",
+      "format": "PDS/STAC",
+      "default_provenance": "CALIBRATED_FALLBACK",
+      "supported_provenance": [
+        "REAL_ORBITAL_COG",
+        "CALIBRATED_FALLBACK"
+      ]
+    },
+    {
+      "target": "moon_aristarchus_plateau",
+      "body": "MOON",
+      "dataset": "Kaguya TC/MI",
+      "portal_url": "https://pds.nasa.gov/",
+      "uri": "./data_lake/targets/moon_aristarchus_plateau/Kaguya TC/MI/",
+      "format": "PDS/STAC",
+      "default_provenance": "CALIBRATED_FALLBACK",
+      "supported_provenance": [
+        "REAL_ORBITAL_COG",
+        "CALIBRATED_FALLBACK"
+      ]
+    },
+    {
+      "target": "moon_aristarchus_plateau",
+      "body": "MOON",
+      "dataset": "M3",
+      "portal_url": "https://pds.nasa.gov/",
+      "uri": "./data_lake/targets/moon_aristarchus_plateau/M3/",
+      "format": "PDS/STAC",
+      "default_provenance": "CALIBRATED_FALLBACK",
+      "supported_provenance": [
+        "REAL_ORBITAL_COG",
+        "CALIBRATED_FALLBACK"
+      ]
+    },
+    {
+      "target": "moon_aristarchus_plateau",
+      "body": "MOON",
+      "dataset": "Diviner",
+      "portal_url": "https://pds-geosciences.wustl.edu/missions/lro/diviner.htm",
+      "uri": "./data_lake/targets/moon_aristarchus_plateau/Diviner/",
+      "format": "PDS/STAC",
+      "default_provenance": "CALIBRATED_FALLBACK",
+      "supported_provenance": [
+        "REAL_ORBITAL_COG",
+        "CALIBRATED_FALLBACK"
+      ]
+    },
+    {
+      "target": "moon_marius_hills_skylight",
+      "body": "MOON",
+      "dataset": "LROC NAC",
+      "portal_url": "https://pds-geosciences.wustl.edu/missions/lro/",
+      "uri": "./data_lake/targets/moon_marius_hills_skylight/LROC NAC/",
+      "format": "PDS/STAC",
+      "default_provenance": "CALIBRATED_FALLBACK",
+      "supported_provenance": [
+        "REAL_ORBITAL_COG",
+        "CALIBRATED_FALLBACK"
+      ]
+    },
+    {
+      "target": "moon_marius_hills_skylight",
+      "body": "MOON",
+      "dataset": "GRAIL",
+      "portal_url": "https://pds.nasa.gov/",
+      "uri": "./data_lake/targets/moon_marius_hills_skylight/GRAIL/",
+      "format": "PDS/STAC",
+      "default_provenance": "CALIBRATED_FALLBACK",
+      "supported_provenance": [
+        "REAL_ORBITAL_COG",
+        "CALIBRATED_FALLBACK"
+      ]
+    },
+    {
+      "target": "moon_marius_hills_skylight",
+      "body": "MOON",
+      "dataset": "Mini-RF",
+      "portal_url": "https://pds-geosciences.wustl.edu/missions/lro/",
+      "uri": "./data_lake/targets/moon_marius_hills_skylight/Mini-RF/",
+      "format": "PDS/STAC",
+      "default_provenance": "CALIBRATED_FALLBACK",
+      "supported_provenance": [
+        "REAL_ORBITAL_COG",
+        "CALIBRATED_FALLBACK"
+      ]
+    },
+    {
+      "target": "mars_jezero_western_fan",
+      "body": "MARS",
+      "dataset": "CTX/HiRISE DEM",
+      "portal_url": "https://pds.nasa.gov/",
+      "uri": "./data_lake/targets/mars_jezero_western_fan/CTX/HiRISE DEM/",
+      "format": "PDS/STAC",
+      "default_provenance": "CALIBRATED_FALLBACK",
+      "supported_provenance": [
+        "REAL_ORBITAL_COG",
+        "CALIBRATED_FALLBACK"
+      ]
+    },
+    {
+      "target": "mars_jezero_western_fan",
+      "body": "MARS",
+      "dataset": "CRISM",
+      "portal_url": "https://pds.nasa.gov/",
+      "uri": "./data_lake/targets/mars_jezero_western_fan/CRISM/",
+      "format": "PDS/STAC",
+      "default_provenance": "CALIBRATED_FALLBACK",
+      "supported_provenance": [
+        "REAL_ORBITAL_COG",
+        "CALIBRATED_FALLBACK"
+      ]
+    },
+    {
+      "target": "mars_jezero_western_fan",
+      "body": "MARS",
+      "dataset": "THEMIS",
+      "portal_url": "https://pds.nasa.gov/",
+      "uri": "./data_lake/targets/mars_jezero_western_fan/THEMIS/",
+      "format": "PDS/STAC",
+      "default_provenance": "CALIBRATED_FALLBACK",
+      "supported_provenance": [
+        "REAL_ORBITAL_COG",
+        "CALIBRATED_FALLBACK"
+      ]
+    },
+    {
+      "target": "mars_arcadia_planitia",
+      "body": "MARS",
+      "dataset": "MOLA/CTX DEM",
+      "portal_url": "https://pds.nasa.gov/",
+      "uri": "./data_lake/targets/mars_arcadia_planitia/MOLA/CTX DEM/",
+      "format": "PDS/STAC",
+      "default_provenance": "CALIBRATED_FALLBACK",
+      "supported_provenance": [
+        "REAL_ORBITAL_COG",
+        "CALIBRATED_FALLBACK"
+      ]
+    },
+    {
+      "target": "mars_arcadia_planitia",
+      "body": "MARS",
+      "dataset": "SHARAD",
+      "portal_url": "https://pds.nasa.gov/",
+      "uri": "./data_lake/targets/mars_arcadia_planitia/SHARAD/",
+      "format": "PDS/STAC",
+      "default_provenance": "CALIBRATED_FALLBACK",
+      "supported_provenance": [
+        "REAL_ORBITAL_COG",
+        "CALIBRATED_FALLBACK"
+      ]
+    },
+    {
+      "target": "mars_arcadia_planitia",
+      "body": "MARS",
+      "dataset": "GRS/HEND",
+      "portal_url": "https://pds.nasa.gov/",
+      "uri": "./data_lake/targets/mars_arcadia_planitia/GRS/HEND/",
+      "format": "PDS/STAC",
+      "default_provenance": "CALIBRATED_FALLBACK",
+      "supported_provenance": [
+        "REAL_ORBITAL_COG",
+        "CALIBRATED_FALLBACK"
+      ]
+    },
+    {
+      "target": "mars_arcadia_planitia",
+      "body": "MARS",
+      "dataset": "THEMIS",
+      "portal_url": "https://pds.nasa.gov/",
+      "uri": "./data_lake/targets/mars_arcadia_planitia/THEMIS/",
+      "format": "PDS/STAC",
+      "default_provenance": "CALIBRATED_FALLBACK",
+      "supported_provenance": [
+        "REAL_ORBITAL_COG",
+        "CALIBRATED_FALLBACK"
+      ]
+    },
+    {
+      "target": "mars_arsia_mons_pits",
+      "body": "MARS",
+      "dataset": "HiRISE",
+      "portal_url": "https://pds.nasa.gov/",
+      "uri": "./data_lake/targets/mars_arsia_mons_pits/HiRISE/",
+      "format": "PDS/STAC",
+      "default_provenance": "CALIBRATED_FALLBACK",
+      "supported_provenance": [
+        "REAL_ORBITAL_COG",
+        "CALIBRATED_FALLBACK"
+      ]
+    },
+    {
+      "target": "mars_arsia_mons_pits",
+      "body": "MARS",
+      "dataset": "THEMIS diurnal TIR",
+      "portal_url": "https://pds.nasa.gov/",
+      "uri": "./data_lake/targets/mars_arsia_mons_pits/THEMIS diurnal TIR/",
+      "format": "PDS/STAC",
+      "default_provenance": "CALIBRATED_FALLBACK",
+      "supported_provenance": [
+        "REAL_ORBITAL_COG",
+        "CALIBRATED_FALLBACK"
+      ]
+    },
+    {
+      "target": "mars_bagnold_dunes",
+      "body": "MARS",
+      "dataset": "HiRISE",
+      "portal_url": "https://pds.nasa.gov/",
+      "uri": "./data_lake/targets/mars_bagnold_dunes/HiRISE/",
+      "format": "PDS/STAC",
+      "default_provenance": "CALIBRATED_FALLBACK",
+      "supported_provenance": [
+        "REAL_ORBITAL_COG",
+        "CALIBRATED_FALLBACK"
+      ]
+    },
+    {
+      "target": "mars_bagnold_dunes",
+      "body": "MARS",
+      "dataset": "CRISM",
+      "portal_url": "https://pds.nasa.gov/",
+      "uri": "./data_lake/targets/mars_bagnold_dunes/CRISM/",
+      "format": "PDS/STAC",
+      "default_provenance": "CALIBRATED_FALLBACK",
+      "supported_provenance": [
+        "REAL_ORBITAL_COG",
+        "CALIBRATED_FALLBACK"
+      ]
+    },
+    {
+      "target": "mars_bagnold_dunes",
+      "body": "MARS",
+      "dataset": "MCS",
+      "portal_url": "https://pds.nasa.gov/",
+      "uri": "./data_lake/targets/mars_bagnold_dunes/MCS/",
+      "format": "PDS/STAC",
+      "default_provenance": "CALIBRATED_FALLBACK",
+      "supported_provenance": [
+        "REAL_ORBITAL_COG",
+        "CALIBRATED_FALLBACK"
+      ]
+    }
+  ],
+  "count": 24,
+  "targets": 8
+}

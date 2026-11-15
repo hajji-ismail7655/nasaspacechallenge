@@ -1,0 +1,26 @@
+{
+  "tile_id": "earth_anti_atlas_topography",
+  "proj4_laea": "+proj=laea +lat_0=30.5 +lon_0=352.0 +R=6371000",
+  "channel_names": [
+    "elevation_z",
+    "slope_theta",
+    "aspect_psi",
+    "TRI",
+    "TPI",
+    "profile_curvature_kappa_p"
+  ],
+  "source_datasets": [],
+  "acquisition_window": "2024-01-01/2024-12-31",
+  "quality_mask_stats": {
+    "valid_fraction": 0.99
+  },
+  "body": "EARTH",
+  "domain": "topography",
+  "center_lat_deg": 30.5,
+  "center_lon_deg": 352.0,
+  "base_resolution_m": 30.0,
+  "base_height": 256,
+  "base_width": 256,
+  "num_octaves": 5,
+  "num_channels": 6
+}

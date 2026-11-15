@@ -1,0 +1,17 @@
+{
+  "official_resources": {
+    "NASA PDS": "https://pds.nasa.gov/",
+    "NASA LRO": "https://pds-geosciences.wustl.edu/missions/lro/",
+    "NASA LRO Diviner": "https://pds-geosciences.wustl.edu/missions/lro/diviner.htm"
+  },
+  "reference_targets": [
+    {"id": "moon_shackleton_degerlache", "body": "MOON", "name": "Shackleton-de Gerlache Connecting Ridge", "role": "REFERENCE_TARGET", "mission": "Artemis III", "datasets": ["LOLA", "Diviner", "Mini-RF", "M3"], "official_portals": ["https://pds-geosciences.wustl.edu/missions/lro/", "https://pds-geosciences.wustl.edu/missions/lro/diviner.htm", "https://pds.nasa.gov/"], "traits": ["low-angle solar illumination", "cryogenic PSR boundaries", "10-25 deg traverse slopes"]},
+    {"id": "moon_malapert_massif", "body": "MOON", "name": "Malapert Massif", "role": "REFERENCE_TARGET", "mission": "Artemis comms/relay", "datasets": ["LOLA", "Diviner"], "official_portals": ["https://pds-geosciences.wustl.edu/missions/lro/", "https://pds-geosciences.wustl.edu/missions/lro/diviner.htm"], "traits": ["high-elevation line-of-sight", "steep flanking slopes", "highland anorthositic regolith"]},
+    {"id": "moon_aristarchus_plateau", "body": "MOON", "name": "Aristarchus Plateau", "role": "REFERENCE_TARGET", "mission": "Volcanic/ISRU", "datasets": ["Kaguya TC/MI", "M3", "Diviner"], "official_portals": ["https://pds.nasa.gov/", "https://pds-geosciences.wustl.edu/missions/lro/diviner.htm"], "traits": ["pyroclastic glass", "high-Ti/Fe basalt", "rille morphology"]},
+    {"id": "moon_marius_hills_skylight", "body": "MOON", "name": "Marius Hills Skylight", "role": "REFERENCE_TARGET", "mission": "Subsurface habitat", "datasets": ["LROC NAC", "GRAIL", "Mini-RF"], "official_portals": ["https://pds-geosciences.wustl.edu/missions/lro/", "https://pds.nasa.gov/"], "traits": ["collapsed lava tube pit", "basaltic mare plains"]},
+    {"id": "mars_jezero_western_fan", "body": "MARS", "name": "Jezero Crater Western Fan", "role": "REFERENCE_TARGET", "mission": "Mars 2020", "datasets": ["CTX/HiRISE DEM", "CRISM", "THEMIS"], "official_portals": ["https://pds.nasa.gov/"], "traits": ["fluvio-lacustrine fan", "smectite clays", "Mg-carbonates", "olivine floor"]},
+    {"id": "mars_arcadia_planitia", "body": "MARS", "name": "Arcadia Planitia", "role": "REFERENCE_TARGET", "mission": "Human landing/ISRU ice", "datasets": ["MOLA/CTX DEM", "SHARAD", "GRS/HEND", "THEMIS"], "official_portals": ["https://pds.nasa.gov/"], "traits": ["low-slope plains", "shallow buried water ice <1-2m"]},
+    {"id": "mars_arsia_mons_pits", "body": "MARS", "name": "Arsia Mons Pit Craters", "role": "REFERENCE_TARGET", "mission": "Subsurface/cave", "datasets": ["HiRISE", "THEMIS diurnal TIR"], "official_portals": ["https://pds.nasa.gov/"], "traits": ["steep-walled collapse pits", "thermal inertia retention"]},
+    {"id": "mars_bagnold_dunes", "body": "MARS", "name": "Bagnold Dunes, Gale Crater", "role": "REFERENCE_TARGET", "mission": "Aeolian/mobility", "datasets": ["HiRISE", "CRISM", "MCS"], "official_portals": ["https://pds.nasa.gov/"], "traits": ["active basaltic sand dunes", "ripple wavelength scaling", "wheel-slip hazard"]}
+  ]
+}
