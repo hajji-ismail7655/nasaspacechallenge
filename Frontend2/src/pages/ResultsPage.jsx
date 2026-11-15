@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { BODIES, PLANETS } from '../content.js';
 import { asset } from '../assets.js';
 import { CHARACTERISTICS, loadWeights, saveWeights } from '../data/characteristics.js';
@@ -139,11 +140,11 @@ export default function ResultsPage({ body, mode }) {
         <button className="cta" onClick={() => navigate(`compare/${body}/${mode}`)}>Test another spot</button>
       </section>
 
-      <aside className="drawer noprint" aria-hidden={!drawer}>
+      {createPortal(<aside className={`drawer noprint${drawer ? ' is-open' : ''}`} aria-hidden={!drawer}>
         <button className="link" onClick={() => setDrawer(false)}>Close &times;</button>
         <p className="eyebrow">2D mapping</p>
         <div className="drawer__map"><MapPicker planet={body} tools={{}} mapSrc={mapSrc} selection={selection || { point: null, area: null }} onSelect={() => {}} /></div>
-      </aside>
+      </aside>, document.body)}
     </div>
   );
 }
