@@ -27,7 +27,7 @@ Install Python 3 with venv and pip, g++ with C++20 and OpenMP support, and
 Node.js with npm. Ingestion needs internet access for supported Earth COG data.
 
 ~~~bash
-git clone --branch fullproject https://github.com/hajji-ismail7655/nasaspacechallenge.git
+git clone --branch main https://github.com/hajji-ismail7655/nasaspacechallenge.git
 cd nasaspacechallenge
 python3 -m venv .venv
 source .venv/bin/activate
