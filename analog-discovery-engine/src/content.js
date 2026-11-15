@@ -54,4 +54,4 @@ export const UI = {
   clear: 'Clear',
 };
 
-export const CREDITS = 'Blackopps · Contributor: Mohammed-Amine Bouaafia · All rights reserved 2026 · NASA Space Apps Challenge · Music "Quiet Echoes" by Brioso';
+export const CREDITS = 'Blackopps · Contributors: Mohammed-Amine Bouaafia | Ilyass Amine | Taha Hamam | Ismail Haji | Mohammed Ilyass Gannouni · All rights reserved 2026 · NASA Space Apps Challenge · Music "Quiet Echoes" by Brioso';
