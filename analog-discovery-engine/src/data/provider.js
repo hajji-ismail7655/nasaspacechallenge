@@ -10,53 +10,8 @@ const DOMAINS = [
 
 async function getJson(path) {
   const response = await fetch(`${API}${path}`);
-  if (!response.ok) {
-    throw new Error(`Backend request failed (${response.status}): ${path}`);
-  }
+  if (!response.ok) throw new Error(`Backend request failed (${response.status}): ${path}`);
   return response.json();
-}
-
-function lonDelta(a, b) {
-  return ((((a - b) + 540) % 360) - 180);
-}
-
-function distanceKm(a, b) {
-  const rad = Math.PI / 180;
-  const lat1 = a.lat * rad;
-  const lat2 = b.lat * rad;
-  const dLat = (b.lat - a.lat) * rad;
-  const dLon = lonDelta(b.lon, a.lon) * rad;
-  const h = Math.sin(dLat / 2) ** 2
-    + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
-  return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(Math.max(0, 1 - h)));
-}
-
-function areaCenter(area) {
-  if (area.shape === 'cap' && area.center) return area.center;
-  const { south, north, west, east } = area.bounds;
-  const span = west <= east ? east - west : east + 360 - west;
-  const lon = ((((west + span / 2) + 180) % 360) + 360) % 360 - 180;
-  return { lat: (south + north) / 2, lon };
-}
-
-function contains(area, point) {
-  const { south, north, west, east } = area.bounds;
-  const lonInRange = west <= east
-    ? point.lon >= west && point.lon <= east
-    : point.lon >= west || point.lon <= east;
-  if (!(point.lat >= south && point.lat <= north && lonInRange)) return false;
-  if (area.shape === 'cap' && area.center && Number.isFinite(area.radiusDeg)) {
-    return distanceKm(area.center, point) <= area.radiusDeg * 111.195;
-  }
-  return true;
-}
-
-function selectionPoint(selection) {
-  if (selection?.point) return selection.point;
-  if (selection?.type === 'point') return { lat: selection.lat, lon: selection.lon };
-  if (selection?.area) return areaCenter(selection.area);
-  if (selection?.type === 'area') return areaCenter(selection.area);
-  return null;
 }
 
 async function candidatesForBody(body) {
@@ -71,30 +26,6 @@ async function candidatesForBody(body) {
   return groups.flat();
 }
 
-function pickCandidate(sites, selection) {
-  const point = selectionPoint(selection);
-  if (!point) throw new Error('Choose a point or area before requesting a comparison.');
-
-  let pool = sites;
-  const area = selection?.area || (selection?.type === 'area' ? selection.area : null);
-  if (area) {
-    pool = sites.filter((site) => {
-      const p = site.coordinates || site;
-      return Number.isFinite(p.lat) && Number.isFinite(p.lon) && contains(area, p);
-    });
-    if (!pool.length) throw new Error('No precomputed Earth discovery falls inside the selected area.');
-  }
-  if (!pool.length) throw new Error('The backend has no discovery results yet. Run the discovery sweep first.');
-
-  return pool
-    .map((site) => {
-      const p = site.coordinates || site;
-      return { site, distance: distanceKm(point, { lat: Number(p.lat), lon: Number(p.lon) }) };
-    })
-    .filter((entry) => Number.isFinite(entry.distance))
-    .sort((a, b) => a.distance - b.distance)[0] || null;
-}
-
 function normalizedScore(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return null;
@@ -102,38 +33,42 @@ function normalizedScore(value) {
 }
 
 /*
- * The backend stores precomputed Earth-site matches for each Moon/Mars target.
- * A point selection uses the nearest saved discovery; an area selection only
- * uses discoveries whose coordinates fall inside that area. Scores stay tied
- * to that actual discovery result instead of being fabricated for arbitrary
- * coordinates.
+ * Sweep rows are computed for fixed Moon/Mars targets and Earth analog sites.
+ * A picker selection can be anywhere on the target body, so its coordinates
+ * cannot be compared with Earth-site coordinates. Show the highest ranked
+ * stored result for the selected body and state that it is target-level data.
  */
 export async function getComparison({ body, selection }) {
+  if (!selection || (!selection.point && !selection.area && selection.type !== 'point' && selection.type !== 'area')) {
+    throw new Error('Choose a point or area before requesting a comparison.');
+  }
   const sites = await candidatesForBody(body);
-  const picked = pickCandidate(sites, selection);
-  if (!picked) throw new Error('No backend discovery has usable coordinates.');
+  if (!sites.length) throw new Error('The backend has no discovery results yet. Run the discovery sweep first.');
 
-  const { site, distance } = picked;
-  const [detail] = await Promise.all([
-    getJson(`/breakdown/${encodeURIComponent(site.site_id)}?target_id=${encodeURIComponent(site.target_id)}`)
-      .catch(() => null),
-  ]);
-  const dossier = detail?.breakdown && typeof detail.breakdown === 'object'
-    ? detail.breakdown
-    : {};
+  const site = [...sites].sort((a, b) =>
+    Number(b.novel_composite_score ?? b.composite_score ?? b.composite ?? 0)
+      - Number(a.novel_composite_score ?? a.composite_score ?? a.composite ?? 0),
+  )[0];
+  if (!site?.site_id) throw new Error('The backend discovery row has no site identifier.');
+
+  const detail = await getJson(`/breakdown/${encodeURIComponent(site.site_id)}?target_id=${encodeURIComponent(site.target_id)}`)
+    .catch(() => null);
+  const dossier = detail?.breakdown && typeof detail.breakdown === 'object' ? detail.breakdown : {};
   const domainScores = site.domain_scores || dossier.domain_scores || {};
   const residuals = dossier.channel_residuals || {};
   const flags = Array.isArray(dossier.physical_breakdown_flags) ? dossier.physical_breakdown_flags : [];
-
   const scores = Object.fromEntries(DOMAINS.map((domain) => [domain, normalizedScore(domainScores[domain])]));
+  const composite = normalizedScore(site.novel_composite_score ?? site.composite_score ?? site.composite);
   const texts = Object.fromEntries(DOMAINS.map((domain) => {
     const score = scores[domain];
     const residualCount = Object.keys(residuals).filter((key) => key.startsWith(`${domain}.`)).length;
     const value = score == null
-      ? 'The discovery result has no score for this domain.'
-      : `Backend ${domain.replaceAll('_', ' ')} similarity: ${score.toFixed(1)}%. `
-        + `Using Earth site ${site.site_id} (${distance.toFixed(1)} km from the selected point/area center) `
-        + `for ${site.target_id}; ${residualCount} channel residuals and ${flags.length} physical flags are available.`;
+      ? 'The stored discovery result has no score for this domain.'
+      : `Stored ${domain.replaceAll('_', ' ')} similarity: ${score.toFixed(1)}%. `
+        + `This is the top ranked Earth site (${site.site_id}) for fixed target ${site.target_id}`
+        + `${composite == null ? '' : `; composite score ${composite.toFixed(1)}%`}. `
+        + `The selected ${body} coordinates are visual context; arbitrary points are not scored by this precomputed sweep. `
+        + `${residualCount} channel residuals and ${flags.length} physical flags are available.`;
     return [domain, value];
   }));
 

@@ -5,10 +5,15 @@
 Flow: intro -> Earth hero -> Moon / Mars sections -> 3D or 2D -> selection workspace -> results.
 Routes (hash): `#/`, `#/compare/:body`, `#/compare/:body/:mode`, `#/compare/:body/:mode/results` (body = moon|mars, mode = 3d|2d).
 
-## Connect the datasets (only thing left)
-Everything reads from `src/data/provider.js`: `getComparison({ body, selection })` must resolve to
-`{ scores: {a..h: 0..100|null}, thermal: { earth: <equirect image URL>, target: <equirect image URL>, legend: [{code, meaning}] }, texts: {a..h: string} }`.
-Characteristic names/units/descriptions: `src/data/characteristics.js`. Until connected, the results page shows "—" and no invented data.
+## Backend
+Start the FastAPI service from the repository root with `uvicorn app.main:app
+--host 0.0.0.0 --port 8000`. Set `VITE_API_BASE_URL` when it is hosted at a
+different address; the default is `http://localhost:8000`.
+
+The frontend reads five domain scores for the selected body's fixed targets.
+Picker coordinates are visual context; arbitrary points and areas are not
+scored by the current precomputed sweep. The API does not serve thermal grids,
+so the frontend leaves thermal overlays disabled and reports that limitation.
 
 ## Notes
 - Textures are mapped by UV, so a point on the globe equals the same point on the map.
