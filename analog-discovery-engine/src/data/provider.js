@@ -1,4 +1,4 @@
-const API = String(import.meta.env.VITE_API_BASE_URL || window.ANALOG_API || 'http://localhost:8000').replace(/\/$/, '');
+const API = String(import.meta.env?.VITE_API_BASE_URL || globalThis.window?.ANALOG_API || 'http://localhost:8000').replace(/\/$/, '');
 
 const DOMAINS = [
   'topography',
@@ -32,6 +32,7 @@ function distanceKm(a, b) {
 }
 
 function areaCenter(area) {
+  if (area.shape === 'cap' && area.center) return area.center;
   const { south, north, west, east } = area.bounds;
   const span = west <= east ? east - west : east + 360 - west;
   const lon = ((((west + span / 2) + 180) % 360) + 360) % 360 - 180;
@@ -43,7 +44,11 @@ function contains(area, point) {
   const lonInRange = west <= east
     ? point.lon >= west && point.lon <= east
     : point.lon >= west || point.lon <= east;
-  return point.lat >= south && point.lat <= north && lonInRange;
+  if (!(point.lat >= south && point.lat <= north && lonInRange)) return false;
+  if (area.shape === 'cap' && area.center && Number.isFinite(area.radiusDeg)) {
+    return distanceKm(area.center, point) <= area.radiusDeg * 111.195;
+  }
+  return true;
 }
 
 function selectionPoint(selection) {
